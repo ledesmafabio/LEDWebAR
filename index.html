@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AR Web — Panel de Administración</title>
+  <title>LED AR Experience Creator</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -171,6 +171,7 @@
       display: flex;
       gap: 8px;
       margin-top: 10px;
+      flex-wrap: wrap;
     }
     .btn-small {
       padding: 6px 12px;
@@ -184,6 +185,12 @@
     .btn-small:hover { background: #f5f5f7; }
     .btn-danger { color: #ff3b30; border-color: #ff3b30; }
     .btn-danger:hover { background: #fff0ef; }
+    .btn-download {
+      background: #34c759;
+      color: white;
+      border-color: #34c759;
+    }
+    .btn-download:hover { background: #30b350; }
     
     .empty-state {
       text-align: center;
@@ -257,12 +264,13 @@
       body { padding: 12px; }
       .exp-card { flex-wrap: wrap; }
       .exp-qr { margin-left: auto; }
+      .actions { width: 100%; }
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>🎯 AR Web Admin</h1>
+    <h1>LED AR Experience Creator</h1>
     <p class="subtitle">Crea experiencias de realidad aumentada vinculadas a códigos QR</p>
     
     <div class="note">
@@ -357,6 +365,7 @@
       <div class="qr-url" id="qrUrl"></div>
       <div class="actions" style="justify-content:center; margin-top:20px;">
         <button class="btn-small" onclick="closeModal()">Cerrar</button>
+        <button class="btn-small btn-download" onclick="downloadQR()">⬇️ Descargar QR</button>
         <button class="btn-small" onclick="openViewer()" style="background:#0071e3; color:white; border-color:#0071e3;">Abrir visor</button>
       </div>
     </div>
@@ -381,14 +390,13 @@
     }
     
     function getBaseUrl() {
-      // URL base para el visor (misma carpeta)
       const loc = window.location;
       const path = loc.pathname.replace(/[^/]*$/, '');
       return loc.origin + path + 'viewer.html';
     }
     
     // ===== MANEJO DE ARCHIVOS =====
-    let currentContent = null; // { name, type, data }
+    let currentContent = null;
     let currentTarget = null;
     
     function setupFileInput(inputId, zoneId, previewId, textId, storeRef) {
@@ -423,6 +431,8 @@
     
     // ===== GUARDAR EXPERIENCIA =====
     let lastCreatedId = null;
+    let lastCreatedName = '';
+    let lastCreatedUrl = '';
     
     function saveExperience() {
       const name = document.getElementById('projectName').value.trim();
@@ -454,6 +464,7 @@
       });
       
       lastCreatedId = exp.id;
+      lastCreatedName = exp.name;
       renderList();
       showQR(exp);
     }
@@ -466,6 +477,8 @@
       
       display.innerHTML = '';
       const viewerUrl = getBaseUrl() + '?id=' + exp.id;
+      lastCreatedUrl = viewerUrl;
+      lastCreatedName = exp.name;
       urlEl.textContent = viewerUrl;
       
       new QRCode(display, {
@@ -488,6 +501,46 @@
       if (lastCreatedId) {
         window.open(getBaseUrl() + '?id=' + lastCreatedId, '_blank');
       }
+    }
+    
+    // ===== DESCARGAR QR =====
+    function downloadQR() {
+      const display = document.getElementById('qrDisplay');
+      const canvas = display.querySelector('canvas');
+      if (!canvas) {
+        alert('El QR aún no está listo. Intenta de nuevo en un momento.');
+        return;
+      }
+      
+      // Crear un canvas temporal con padding blanco y etiqueta
+      const padding = 24;
+      const labelHeight = 40;
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = canvas.width + padding * 2;
+      tempCanvas.height = canvas.height + padding * 2 + labelHeight;
+      
+      const ctx = tempCanvas.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+      
+      // Dibujar QR
+      ctx.drawImage(canvas, padding, padding);
+      
+      // Dibujar nombre del proyecto
+      ctx.fillStyle = '#1d1d1f';
+      ctx.font = 'bold 16px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.textAlign = 'center';
+      const safeName = lastCreatedName.replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑüÜ\s\-_]/g, '').substring(0, 40);
+      ctx.fillText(safeName || 'Experiencia AR', tempCanvas.width / 2, canvas.height + padding * 2 + 10);
+      
+      // Descargar
+      const link = document.createElement('a');
+      const fileName = (safeName || 'qr-ar').replace(/\s+/g, '_') + '.png';
+      link.download = fileName;
+      link.href = tempCanvas.toDataURL('image/png');
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
     
     // ===== RENDER LISTA =====
@@ -515,6 +568,7 @@
         });
         const viewerUrl = getBaseUrl() + '?id=' + exp.id;
         const hasTarget = exp.target ? 'Custom target' : 'Marcador Hiro';
+        const safeName = exp.name.replace(/"/g, '&quot;');
         
         return `
           <div class="exp-card">
@@ -528,6 +582,7 @@
               </div>
               <div class="actions">
                 <button class="btn-small" onclick="showQRById('${exp.id}')">Ver QR</button>
+                <button class="btn-small btn-download" onclick="downloadQRById('${exp.id}')">⬇️ QR</button>
                 <button class="btn-small" onclick="window.open('${viewerUrl}','_blank')">Probar</button>
                 <button class="btn-small btn-danger" onclick="deleteExp('${exp.id}')">Eliminar</button>
               </div>
@@ -556,6 +611,56 @@
     function showQRById(id) {
       const exp = getExperiences().find(e => e.id === id);
       if (exp) { lastCreatedId = id; showQR(exp); }
+    }
+    
+    function downloadQRById(id) {
+      const exp = getExperiences().find(e => e.id === id);
+      if (!exp) return;
+      
+      // Generar QR temporalmente para descargar
+      const tempDiv = document.createElement('div');
+      tempDiv.style.position = 'absolute';
+      tempDiv.style.left = '-9999px';
+      document.body.appendChild(tempDiv);
+      
+      new QRCode(tempDiv, {
+        text: getBaseUrl() + '?id=' + id,
+        width: 200,
+        height: 200,
+        colorDark: '#000000',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.M
+      });
+      
+      setTimeout(() => {
+        const canvas = tempDiv.querySelector('canvas');
+        if (canvas) {
+          const padding = 24;
+          const labelHeight = 40;
+          const tempCanvas = document.createElement('canvas');
+          tempCanvas.width = canvas.width + padding * 2;
+          tempCanvas.height = canvas.height + padding * 2 + labelHeight;
+          
+          const ctx = tempCanvas.getContext('2d');
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+          ctx.drawImage(canvas, padding, padding);
+          
+          ctx.fillStyle = '#1d1d1f';
+          ctx.font = 'bold 16px -apple-system, BlinkMacSystemFont, sans-serif';
+          ctx.textAlign = 'center';
+          const safeName = exp.name.replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑüÜ\s\-_]/g, '').substring(0, 40);
+          ctx.fillText(safeName || 'Experiencia AR', tempCanvas.width / 2, canvas.height + padding * 2 + 10);
+          
+          const link = document.createElement('a');
+          link.download = (safeName || 'qr-ar').replace(/\s+/g, '_') + '.png';
+          link.href = tempCanvas.toDataURL('image/png');
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }
+        document.body.removeChild(tempDiv);
+      }, 300);
     }
     
     function deleteExp(id) {
@@ -592,7 +697,6 @@
           if (!Array.isArray(imported)) throw new Error('Formato inválido');
           const current = getExperiences();
           const merged = [...imported, ...current];
-          // Evitar duplicados por ID
           const seen = new Set();
           const unique = [];
           merged.forEach(item => {
