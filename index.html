@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AR Web — Panel de Administración</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f5f5f7;
+      color: #1d1d1f;
+      line-height: 1.5;
+      padding: 20px;
+    }
+    .container { max-width: 720px; margin: 0 auto; }
+    h1 { font-size: 28px; font-weight: 600; margin-bottom: 8px; }
+    .subtitle { color: #6e6e73; margin-bottom: 24px; font-size: 15px; }
+    
+    .card {
+      background: white;
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    .card h2 {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .form-group { margin-bottom: 18px; }
+    .form-group label {
+      display: block;
+      font-size: 14px;
+      font-weight: 500;
+      color: #3a3a3c;
+      margin-bottom: 6px;
+    }
+    .form-group input[type="text"] {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid #d2d2d7;
+      border-radius: 10px;
+      font-size: 15px;
+      transition: border-color 0.2s;
+    }
+    .form-group input[type="text"]:focus {
+      outline: none;
+      border-color: #0071e3;
+    }
+    
+    .upload-zone {
+      border: 2px dashed #d2d2d7;
+      border-radius: 12px;
+      padding: 32px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+    .upload-zone:hover {
+      border-color: #0071e3;
+      background: #f0f7ff;
+    }
+    .upload-zone.has-file {
+      border-style: solid;
+      border-color: #34c759;
+      background: #f0fff4;
+    }
+    .upload-zone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+    .upload-icon {
+      width: 40px;
+      height: 40px;
+      margin: 0 auto 10px;
+      color: #86868b;
+    }
+    .upload-text { font-size: 15px; color: #1d1d1f; }
+    .upload-hint { font-size: 12px; color: #86868b; margin-top: 4px; }
+    .file-preview {
+      margin-top: 12px;
+      max-width: 200px;
+      max-height: 150px;
+      border-radius: 8px;
+      display: none;
+    }
+    .file-preview.active { display: block; margin: 12px auto 0; }
+    
+    .btn-primary {
+      width: 100%;
+      padding: 14px;
+      background: #0071e3;
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn-primary:hover { background: #0077ed; }
+    .btn-primary:disabled { background: #d2d2d7; cursor: not-allowed; }
+    
+    .experiences-grid {
+      display: grid;
+      gap: 12px;
+    }
+    .exp-card {
+      background: white;
+      border-radius: 14px;
+      padding: 16px;
+      display: flex;
+      gap: 14px;
+      align-items: center;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      transition: transform 0.15s;
+    }
+    .exp-card:hover { transform: translateY(-1px); }
+    .exp-thumb {
+      width: 56px;
+      height: 56px;
+      border-radius: 10px;
+      background: #f5f5f7;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+    .exp-thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .exp-info { flex: 1; min-width: 0; }
+    .exp-name {
+      font-size: 15px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .exp-meta {
+      font-size: 13px;
+      color: #6e6e73;
+      margin-top: 2px;
+    }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      margin-left: 4px;
+    }
+    .badge-png { background: #e8f5e9; color: #2e7d32; }
+    .badge-gif { background: #fff3e0; color: #ef6c00; }
+    .exp-qr { flex-shrink: 0; }
+    .exp-qr canvas { border-radius: 6px; }
+    
+    .actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .btn-small {
+      padding: 6px 12px;
+      border-radius: 8px;
+      border: 1px solid #d2d2d7;
+      background: white;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-small:hover { background: #f5f5f7; }
+    .btn-danger { color: #ff3b30; border-color: #ff3b30; }
+    .btn-danger:hover { background: #fff0ef; }
+    
+    .empty-state {
+      text-align: center;
+      padding: 48px 20px;
+      color: #86868b;
+    }
+    .empty-state svg { margin-bottom: 12px; opacity: 0.4; }
+    
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 20px;
+    }
+    .modal-overlay.active { display: flex; }
+    .modal {
+      background: white;
+      border-radius: 20px;
+      padding: 28px;
+      max-width: 400px;
+      width: 100%;
+      text-align: center;
+    }
+    .modal h3 { font-size: 20px; margin-bottom: 8px; }
+    .modal p { color: #6e6e73; font-size: 14px; margin-bottom: 20px; }
+    .qr-display { margin: 16px auto; display: inline-block; }
+    .qr-url {
+      font-size: 12px;
+      color: #86868b;
+      word-break: break-all;
+      margin-top: 8px;
+      font-family: monospace;
+      background: #f5f5f7;
+      padding: 8px;
+      border-radius: 8px;
+    }
+    
+    .tools-bar {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    .btn-tool {
+      padding: 10px 16px;
+      border-radius: 10px;
+      border: 1px solid #d2d2d7;
+      background: white;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-tool:hover { background: #f5f5f7; }
+    
+    .note {
+      background: #fff8e1;
+      border-left: 4px solid #ffc107;
+      padding: 12px 16px;
+      border-radius: 0 10px 10px 0;
+      font-size: 13px;
+      color: #5d4037;
+      margin-bottom: 20px;
+    }
+    .note strong { display: block; margin-bottom: 4px; }
+    
+    @media (max-width: 600px) {
+      body { padding: 12px; }
+      .exp-card { flex-wrap: wrap; }
+      .exp-qr { margin-left: auto; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎯 AR Web Admin</h1>
+    <p class="subtitle">Crea experiencias de realidad aumentada vinculadas a códigos QR</p>
+    
+    <div class="note">
+      <strong>ℹ️ Importante</strong>
+      Los datos se guardan en el navegador (LocalStorage). Para compartir entre dispositivos, usa Exportar/Importar. 
+      En producción, conecta un backend con base de datos.
+    </div>
+    
+    <div class="card">
+      <h2>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 5v14M5 12h14"/>
+        </svg>
+        Nueva experiencia AR
+      </h2>
+      
+      <div class="form-group">
+        <label>Nombre del proyecto</label>
+        <input type="text" id="projectName" placeholder="Ej: Cartel promocional verano 2026">
+      </div>
+      
+      <div class="form-group">
+        <label>Contenido AR (PNG o GIF)</label>
+        <div class="upload-zone" id="contentZone">
+          <input type="file" id="contentFile" accept="image/png,image/gif">
+          <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          <div class="upload-text" id="contentText">Haz clic o arrastra para subir PNG / GIF</div>
+          <div class="upload-hint">Máximo recomendado: 2MB · Este es el contenido que aparecerá en AR</div>
+          <img class="file-preview" id="contentPreview">
+        </div>
+      </div>
+      
+      <div class="form-group">
+        <label>Imagen target personalizada (opcional)</label>
+        <div class="upload-zone" id="targetZone">
+          <input type="file" id="targetFile" accept="image/*">
+          <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="3" y="3" width="18" height="18" rx="2"/>
+            <circle cx="8.5" cy="8.5" r="1.5"/>
+            <path d="M21 15l-5-5L5 21"/>
+          </svg>
+          <div class="upload-text" id="targetText">Subir imagen para tracking avanzado</div>
+          <div class="upload-hint">
+            Si no subes nada, se usará el <strong>marcador Hiro</strong> por defecto.
+            Para usar esta imagen como target, debes compilarla (ver nota abajo).
+          </div>
+          <img class="file-preview" id="targetPreview">
+        </div>
+      </div>
+      
+      <button class="btn-primary" id="saveBtn" onclick="saveExperience()">Guardar y generar QR</button>
+    </div>
+    
+    <div class="tools-bar">
+      <button class="btn-tool" onclick="exportData()">📤 Exportar datos</button>
+      <button class="btn-tool" onclick="document.getElementById('importFile').click()">📥 Importar datos</button>
+      <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)">
+      <button class="btn-tool" onclick="clearAll()" style="color:#ff3b30">🗑️ Limpiar todo</button>
+    </div>
+    
+    <div class="card">
+      <h2>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+        </svg>
+        Experiencias creadas
+      </h2>
+      <div id="experiencesList">
+        <div class="empty-state">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="3" y="3" width="18" height="18" rx="2"/>
+            <circle cx="8.5" cy="8.5" r="1.5"/>
+            <path d="M21 15l-5-5L5 21"/>
+          </svg>
+          <p>No hay experiencias creadas aún.<br>Sube tu primer contenido AR arriba.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Modal QR -->
+  <div class="modal-overlay" id="qrModal">
+    <div class="modal">
+      <h3>✅ Experiencia creada</h3>
+      <p>Escanea este QR con tu móvil para abrir el visor AR</p>
+      <div class="qr-display" id="qrDisplay"></div>
+      <div class="qr-url" id="qrUrl"></div>
+      <div class="actions" style="justify-content:center; margin-top:20px;">
+        <button class="btn-small" onclick="closeModal()">Cerrar</button>
+        <button class="btn-small" onclick="openViewer()" style="background:#0071e3; color:white; border-color:#0071e3;">Abrir visor</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ===== UTILIDADES =====
+    const STORAGE_KEY = 'ar-web-experiences';
+    
+    function generateId() {
+      return 'ar-' + Math.random().toString(36).substring(2, 9) + Date.now().toString(36).substring(2, 5);
+    }
+    
+    function getExperiences() {
+      try {
+        return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+      } catch { return []; }
+    }
+    
+    function saveExperiences(list) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+    }
+    
+    function getBaseUrl() {
+      // URL base para el visor (misma carpeta)
+      const loc = window.location;
+      const path = loc.pathname.replace(/[^/]*$/, '');
+      return loc.origin + path + 'viewer.html';
+    }
+    
+    // ===== MANEJO DE ARCHIVOS =====
+    let currentContent = null; // { name, type, data }
+    let currentTarget = null;
+    
+    function setupFileInput(inputId, zoneId, previewId, textId, storeRef) {
+      const input = document.getElementById(inputId);
+      const zone = document.getElementById(zoneId);
+      const preview = document.getElementById(previewId);
+      const text = document.getElementById(textId);
+      
+      input.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          const data = ev.target.result;
+          if (storeRef === 'content') {
+            currentContent = { name: file.name, type: file.type, data };
+          } else {
+            currentTarget = { name: file.name, type: file.type, data };
+          }
+          preview.src = data;
+          preview.classList.add('active');
+          zone.classList.add('has-file');
+          text.innerHTML = `✓ <strong>${file.name}</strong> · ${(file.size/1024).toFixed(1)} KB`;
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+    
+    setupFileInput('contentFile', 'contentZone', 'contentPreview', 'contentText', 'content');
+    setupFileInput('targetFile', 'targetZone', 'targetPreview', 'targetText', 'target');
+    
+    // ===== GUARDAR EXPERIENCIA =====
+    let lastCreatedId = null;
+    
+    function saveExperience() {
+      const name = document.getElementById('projectName').value.trim();
+      if (!name) { alert('Por favor ingresa un nombre para el proyecto'); return; }
+      if (!currentContent) { alert('Por favor sube un contenido PNG o GIF'); return; }
+      
+      const exp = {
+        id: generateId(),
+        name,
+        content: currentContent,
+        target: currentTarget,
+        createdAt: Date.now()
+      };
+      
+      const list = getExperiences();
+      list.unshift(exp);
+      saveExperiences(list);
+      
+      // Limpiar formulario
+      document.getElementById('projectName').value = '';
+      currentContent = null; currentTarget = null;
+      ['content','target'].forEach(t => {
+        document.getElementById(t+'Preview').classList.remove('active');
+        document.getElementById(t+'Zone').classList.remove('has-file');
+        document.getElementById(t+'Text').innerHTML = t === 'content' 
+          ? 'Haz clic o arrastra para subir PNG / GIF'
+          : 'Subir imagen para tracking avanzado';
+        document.getElementById(t+'File').value = '';
+      });
+      
+      lastCreatedId = exp.id;
+      renderList();
+      showQR(exp);
+    }
+    
+    // ===== MOSTRAR QR =====
+    function showQR(exp) {
+      const modal = document.getElementById('qrModal');
+      const display = document.getElementById('qrDisplay');
+      const urlEl = document.getElementById('qrUrl');
+      
+      display.innerHTML = '';
+      const viewerUrl = getBaseUrl() + '?id=' + exp.id;
+      urlEl.textContent = viewerUrl;
+      
+      new QRCode(display, {
+        text: viewerUrl,
+        width: 200,
+        height: 200,
+        colorDark: '#000000',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.M
+      });
+      
+      modal.classList.add('active');
+    }
+    
+    function closeModal() {
+      document.getElementById('qrModal').classList.remove('active');
+    }
+    
+    function openViewer() {
+      if (lastCreatedId) {
+        window.open(getBaseUrl() + '?id=' + lastCreatedId, '_blank');
+      }
+    }
+    
+    // ===== RENDER LISTA =====
+    function renderList() {
+      const list = getExperiences();
+      const container = document.getElementById('experiencesList');
+      
+      if (list.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <rect x="3" y="3" width="18" height="18" rx="2"/>
+              <circle cx="8.5" cy="8.5" r="1.5"/>
+              <path d="M21 15l-5-5L5 21"/>
+            </svg>
+            <p>No hay experiencias creadas aún.<br>Sube tu primer contenido AR arriba.</p>
+          </div>`;
+        return;
+      }
+      
+      container.innerHTML = '<div class="experiences-grid">' + list.map(exp => {
+        const isGif = exp.content.type === 'image/gif';
+        const date = new Date(exp.createdAt).toLocaleDateString('es-ES', { 
+          day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' 
+        });
+        const viewerUrl = getBaseUrl() + '?id=' + exp.id;
+        const hasTarget = exp.target ? 'Custom target' : 'Marcador Hiro';
+        
+        return `
+          <div class="exp-card">
+            <div class="exp-thumb">
+              <img src="${exp.content.data}" alt="" onerror="this.style.display='none'">
+            </div>
+            <div class="exp-info">
+              <div class="exp-name">${escapeHtml(exp.name)}</div>
+              <div class="exp-meta">
+                ${date} · <span class="badge badge-${isGif?'gif':'png'}">${isGif?'GIF':'PNG'}</span> · ${hasTarget}
+              </div>
+              <div class="actions">
+                <button class="btn-small" onclick="showQRById('${exp.id}')">Ver QR</button>
+                <button class="btn-small" onclick="window.open('${viewerUrl}','_blank')">Probar</button>
+                <button class="btn-small btn-danger" onclick="deleteExp('${exp.id}')">Eliminar</button>
+              </div>
+            </div>
+            <div class="exp-qr" id="qr-${exp.id}"></div>
+          </div>
+        `;
+      }).join('') + '</div>';
+      
+      // Generar mini-QRs
+      setTimeout(() => {
+        list.forEach(exp => {
+          const el = document.getElementById('qr-' + exp.id);
+          if (el) {
+            new QRCode(el, {
+              text: getBaseUrl() + '?id=' + exp.id,
+              width: 64,
+              height: 64,
+              correctLevel: QRCode.CorrectLevel.L
+            });
+          }
+        });
+      }, 50);
+    }
+    
+    function showQRById(id) {
+      const exp = getExperiences().find(e => e.id === id);
+      if (exp) { lastCreatedId = id; showQR(exp); }
+    }
+    
+    function deleteExp(id) {
+      if (!confirm('¿Eliminar esta experiencia?')) return;
+      saveExperiences(getExperiences().filter(e => e.id !== id));
+      renderList();
+    }
+    
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+    
+    // ===== EXPORTAR / IMPORTAR =====
+    function exportData() {
+      const data = getExperiences();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'ar-experiences-' + new Date().toISOString().slice(0,10) + '.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+    
+    function importData(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const imported = JSON.parse(e.target.result);
+          if (!Array.isArray(imported)) throw new Error('Formato inválido');
+          const current = getExperiences();
+          const merged = [...imported, ...current];
+          // Evitar duplicados por ID
+          const seen = new Set();
+          const unique = [];
+          merged.forEach(item => {
+            if (!seen.has(item.id)) { seen.add(item.id); unique.push(item); }
+          });
+          saveExperiences(unique);
+          renderList();
+          alert(`Importadas ${imported.length} experiencias`);
+        } catch (err) {
+          alert('Error al importar: ' + err.message);
+        }
+      };
+      reader.readAsText(file);
+      event.target.value = '';
+    }
+    
+    function clearAll() {
+      if (!confirm('¿Eliminar TODAS las experiencias? Esta acción no se puede deshacer.')) return;
+      localStorage.removeItem(STORAGE_KEY);
+      renderList();
+    }
+    
+    // ===== INICIALIZAR =====
+    renderList();
+  </script>
+</body>
+</html>

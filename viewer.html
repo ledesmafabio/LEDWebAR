@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>AR Web — Visor</title>
+  
+  <!-- A-Frame + AR.js (Marker Tracking) -->
+  <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
+  <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+  
+  <!-- gifler para renderizar GIFs animados en canvas -->
+  <script src="https://cdn.jsdelivr.net/npm/gifler@0.1.0/gifler.min.js"></script>
+  
+  <style>
+    body { margin: 0; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
+    
+    .arjs-loader {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.9);
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      text-align: center;
+      padding: 20px;
+      transition: opacity 0.5s;
+    }
+    .arjs-loader.hidden { opacity: 0; pointer-events: none; }
+    .arjs-loader h2 { font-size: 22px; margin-bottom: 10px; font-weight: 600; }
+    .arjs-loader p { font-size: 15px; color: #aaa; max-width: 300px; }
+    .spinner {
+      width: 40px; height: 40px;
+      border: 3px solid rgba(255,255,255,0.2);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-bottom: 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    
+    .ui-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      pointer-events: none;
+    }
+    .ui-bar {
+      background: rgba(0,0,0,0.6);
+      backdrop-filter: blur(10px);
+      color: white;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .ui-bar .title { font-size: 15px; font-weight: 600; }
+    .ui-bar .meta { font-size: 12px; opacity: 0.8; }
+    .ui-bar .btn {
+      pointer-events: auto;
+      padding: 6px 14px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.3);
+      background: rgba(255,255,255,0.1);
+      color: white;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .ui-bar .btn:hover { background: rgba(255,255,255,0.2); }
+    
+    .status-pill {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(10px);
+      color: white;
+      padding: 8px 18px;
+      border-radius: 20px;
+      font-size: 13px;
+      z-index: 100;
+      transition: all 0.3s;
+      white-space: nowrap;
+    }
+    .status-pill.found { background: rgba(52,199,89,0.85); }
+    
+    .error-screen {
+      position: fixed;
+      inset: 0;
+      background: #000;
+      color: white;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 30px;
+      z-index: 10000;
+    }
+    .error-screen.active { display: flex; }
+    .error-screen h2 { font-size: 22px; margin-bottom: 12px; }
+    .error-screen p { color: #aaa; font-size: 15px; max-width: 320px; line-height: 1.5; }
+    .error-screen .btn-primary {
+      margin-top: 20px;
+      padding: 12px 24px;
+      background: #0071e3;
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    
+    /* Marcador Hiro guía visual */
+    .marker-guide {
+      position: fixed;
+      bottom: 70px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 140px;
+      height: 140px;
+      border: 2px dashed rgba(255,255,255,0.3);
+      border-radius: 8px;
+      z-index: 50;
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: rgba(255,255,255,0.4);
+      font-size: 12px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  
+  <!-- Loader -->
+  <div class="arjs-loader" id="loader">
+    <div class="spinner"></div>
+    <h2>Iniciando AR...</h2>
+    <p id="loaderText">Cargando experiencia y solicitando acceso a cámara</p>
+  </div>
+  
+  <!-- Error -->
+  <div class="error-screen" id="errorScreen">
+    <h2 id="errorTitle">Experiencia no encontrada</h2>
+    <p id="errorText">El ID de esta experiencia no existe en este dispositivo. Usa Exportar/Importar en el panel admin para transferir datos.</p>
+    <button class="btn-primary" onclick="window.location.href='index.html'">Ir al panel admin</button>
+  </div>
+  
+  <!-- UI Overlay -->
+  <div class="ui-overlay" id="uiOverlay" style="display:none;">
+    <div class="ui-bar">
+      <div>
+        <div class="title" id="expTitle">Experiencia AR</div>
+        <div class="meta" id="expMeta">Marcador Hiro</div>
+      </div>
+      <button class="btn" onclick="toggleFullscreen()">⛶ Pantalla completa</button>
+    </div>
+  </div>
+  
+  <div class="status-pill" id="statusPill">🔍 Apunta la cámara al marcador Hiro</div>
+  <div class="marker-guide" id="markerGuide">Marcador<br>Hiro</div>
+  
+  <!-- A-Frame Scene -->
+  <a-scene 
+    embedded 
+    arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;" 
+    vr-mode-ui="enabled: false"
+    renderer="logarithmicDepthBuffer: true; precision: medium;"
+    id="arScene"
+    style="display:none;">
+    
+    <a-assets id="assetsContainer" timeout="10000"></a-assets>
+    
+    <!-- Marcador Hiro (por defecto) -->
+    <a-marker preset="hiro" id="hiroMarker" emitevents="true">
+      <a-entity id="contentAnchor" position="0 0 0" rotation="-90 0 0"></a-entity>
+    </a-marker>
+    
+    <a-entity camera></a-entity>
+  </a-scene>
+
+  <script>
+    // ===== CONFIGURACIÓN =====
+    const STORAGE_KEY = 'ar-web-experiences';
+    const urlParams = new URLSearchParams(window.location.search);
+    const expId = urlParams.get('id');
+    
+    const loader = document.getElementById('loader');
+    const loaderText = document.getElementById('loaderText');
+    const errorScreen = document.getElementById('errorScreen');
+    const scene = document.getElementById('arScene');
+    const contentAnchor = document.getElementById('contentAnchor');
+    const statusPill = document.getElementById('statusPill');
+    const markerGuide = document.getElementById('markerGuide');
+    const uiOverlay = document.getElementById('uiOverlay');
+    
+    // ===== COMPONENTE A-FRAME PARA GIFS =====
+    AFRAME.registerComponent('gif-texture', {
+      schema: { src: { type: 'string' } },
+      init: function() {
+        const el = this.el;
+        const src = this.data.src;
+        
+        // Crear canvas para la textura
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 512;
+        
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.minFilter = THREE.LinearFilter;
+        texture.magFilter = THREE.LinearFilter;
+        
+        // Aplicar textura al mesh
+        const applyTexture = () => {
+          const mesh = el.getObject3D('mesh');
+          if (mesh && mesh.material) {
+            mesh.material.map = texture;
+            mesh.material.transparent = true;
+            mesh.material.needsUpdate = true;
+          }
+        };
+        
+        // Intentar aplicar inmediatamente y también al cargar
+        applyTexture();
+        el.addEventListener('model-loaded', applyTexture);
+        el.addEventListener('loaded', applyTexture);
+        
+        // Cargar GIF con gifler
+        if (typeof gifler !== 'undefined') {
+          gifler(src).get((err, anim) => {
+            if (err) {
+              console.error('Error cargando GIF:', err);
+              return;
+            }
+            anim.animateInCanvas(canvas);
+            // Actualizar textura de Three.js periódicamente
+            const updateLoop = () => {
+              texture.needsUpdate = true;
+              requestAnimationFrame(updateLoop);
+            };
+            updateLoop();
+          });
+        } else {
+          // Fallback: mostrar imagen estática si gifler no carga
+          const img = new Image();
+          img.onload = () => {
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, 512, 512);
+            texture.needsUpdate = true;
+          };
+          img.src = src;
+        }
+      }
+    });
+    
+    // ===== CARGAR EXPERIENCIA =====
+    function getExperiences() {
+      try {
+        return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+      } catch { return []; }
+    }
+    
+    function loadExperience() {
+      if (!expId) {
+        showError('ID no especificado', 'No se proporcionó un ID de experiencia en la URL. Ve al panel admin y genera un QR.');
+        return;
+      }
+      
+      const experiences = getExperiences();
+      const exp = experiences.find(e => e.id === expId);
+      
+      if (!exp) {
+        showError('Experiencia no encontrada', 
+          'Esta experiencia no existe en el almacenamiento local de este dispositivo. ' +
+          'Si la creaste en otro navegador, usa "Exportar datos" en el panel admin e "Importar datos" en este dispositivo.');
+        return;
+      }
+      
+      // Configurar UI
+      document.getElementById('expTitle').textContent = exp.name;
+      document.getElementById('expMeta').textContent = exp.target ? 'Target personalizado (Hiro fallback)' : 'Marcador Hiro';
+      
+      // Crear contenido AR
+      createARContent(exp);
+      
+      // Mostrar escena
+      scene.style.display = 'block';
+      uiOverlay.style.display = 'block';
+      loaderText.textContent = 'Iniciando cámara...';
+      
+      // Escuchar eventos del marcador
+      const marker = document.getElementById('hiroMarker');
+      marker.addEventListener('markerFound', () => {
+        statusPill.textContent = '✅ Marcador detectado — Mostrando contenido AR';
+        statusPill.classList.add('found');
+        markerGuide.style.display = 'none';
+      });
+      marker.addEventListener('markerLost', () => {
+        statusPill.textContent = '🔍 Apunta la cámara al marcador Hiro';
+        statusPill.classList.remove('found');
+        markerGuide.style.display = 'flex';
+      });
+      
+      // Ocultar loader cuando A-Frame esté listo
+      scene.addEventListener('loaded', () => {
+        setTimeout(() => loader.classList.add('hidden'), 800);
+      });
+      
+      // Timeout de seguridad
+      setTimeout(() => {
+        loader.classList.add('hidden');
+      }, 5000);
+    }
+    
+    function createARContent(exp) {
+      const isGif = exp.content.type === 'image/gif';
+      const anchor = document.getElementById('contentAnchor');
+      
+      // Limpiar contenido previo
+      anchor.innerHTML = '';
+      
+      if (isGif) {
+        // GIF animado: usar plano con componente gif-texture
+        const plane = document.createElement('a-plane');
+        plane.setAttribute('width', '1.5');
+        plane.setAttribute('height', '1.5');
+        plane.setAttribute('position', '0 0 0');
+        plane.setAttribute('gif-texture', `src: ${exp.content.data}`);
+        anchor.appendChild(plane);
+      } else {
+        // PNG estático: usar a-image
+        // Primero registrar en assets
+        const imgAsset = document.createElement('img');
+        imgAsset.setAttribute('id', 'arContentImg');
+        imgAsset.setAttribute('src', exp.content.data);
+        document.getElementById('assetsContainer').appendChild(imgAsset);
+        
+        const img = document.createElement('a-image');
+        img.setAttribute('src', '#arContentImg');
+        img.setAttribute('width', '1.5');
+        img.setAttribute('height', '1.5');
+        img.setAttribute('position', '0 0 0');
+        anchor.appendChild(img);
+      }
+      
+      // Añadir animación de entrada
+      const wrapper = document.createElement('a-entity');
+      wrapper.setAttribute('animation', 'property: scale; from: 0 0 0; to: 1 1 1; dur: 600; easing: easeOutElastic');
+      while (anchor.firstChild) {
+        wrapper.appendChild(anchor.firstChild);
+      }
+      anchor.appendChild(wrapper);
+    }
+    
+    function showError(title, text) {
+      document.getElementById('errorTitle').textContent = title;
+      document.getElementById('errorText').textContent = text;
+      errorScreen.classList.add('active');
+      loader.classList.add('hidden');
+    }
+    
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      } else {
+        document.exitFullscreen().catch(() => {});
+      }
+    }
+    
+    // ===== INICIAR =====
+    // Esperar a que A-Frame y AR.js carguen
+    window.addEventListener('load', () => {
+      setTimeout(loadExperience, 500);
+    });
+  </script>
+</body>
+</html>
