@@ -25,78 +25,11 @@
       touch-action: none;
     }
     
-    /* ========== PANTALLA DE PERMISOS ========== */
-    .permission-screen {
-      position: fixed;
-      inset: 0;
-      background: #000;
-      color: #fff;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      padding: 24px;
-      padding-top: max(24px, env(safe-area-inset-top));
-      padding-bottom: max(24px, env(safe-area-inset-bottom));
-      z-index: 10001;
-    }
-    .permission-screen.hidden { display: none !important; }
-    
-    .permission-screen .icon-wrap {
-      width: 80px;
-      height: 80px;
-      border-radius: 20px;
-      background: rgba(255,255,255,0.08);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 20px;
-    }
-    .permission-screen h2 {
-      font-size: clamp(20px, 5vw, 26px);
-      font-weight: 600;
-      margin-bottom: 10px;
-      line-height: 1.2;
-    }
-    .permission-screen p {
-      color: #aaa;
-      font-size: clamp(14px, 3.8vw, 16px);
-      max-width: 320px;
-      line-height: 1.55;
-      margin-bottom: 28px;
-    }
-    .permission-screen .btn-permission {
-      width: min(280px, 80vw);
-      padding: 14px 24px;
-      background: #34c759;
-      color: #fff;
-      border: none;
-      border-radius: 14px;
-      font-size: 16px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 0.2s, transform 0.1s;
-      min-height: 48px;
-    }
-    .permission-screen .btn-permission:active { transform: scale(0.97); }
-    .permission-screen .btn-permission:disabled {
-      background: #2d5a35;
-      color: rgba(255,255,255,0.5);
-    }
-    .permission-screen .hint {
-      margin-top: 16px;
-      font-size: 12px;
-      color: #666;
-      max-width: 280px;
-      line-height: 1.4;
-    }
-    
     /* ========== LOADER ========== */
     .arjs-loader {
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.92);
+      background: #000;
       z-index: 9999;
       display: flex;
       flex-direction: column;
@@ -104,7 +37,9 @@
       justify-content: center;
       color: #fff;
       text-align: center;
-      padding: 20px;
+      padding: 24px;
+      padding-top: max(24px, env(safe-area-inset-top));
+      padding-bottom: max(24px, env(safe-area-inset-bottom));
       transition: opacity 0.4s;
     }
     .arjs-loader.hidden { opacity: 0; pointer-events: none; }
@@ -130,7 +65,7 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
     
-    /* ========== ERROR SCREEN ========== */
+    /* ========== ERROR / DENIED SCREEN ========== */
     .error-screen {
       position: fixed;
       inset: 0;
@@ -168,19 +103,33 @@
       max-width: 300px;
       line-height: 1.5;
     }
-    .error-screen .btn-primary {
+    .error-screen .actions {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
       margin-top: 24px;
-      padding: 14px 28px;
-      background: #0071e3;
-      color: #fff;
-      border: none;
+      width: min(280px, 80vw);
+    }
+    .error-screen .btn {
+      padding: 14px 24px;
       border-radius: 12px;
       font-size: 16px;
       font-weight: 600;
       cursor: pointer;
+      border: none;
       min-height: 48px;
-      min-width: 180px;
+      transition: opacity 0.2s;
     }
+    .error-screen .btn-primary {
+      background: #0071e3;
+      color: #fff;
+    }
+    .error-screen .btn-secondary {
+      background: rgba(255,255,255,0.1);
+      color: #fff;
+      border: 1px solid rgba(255,255,255,0.2);
+    }
+    .error-screen .btn:active { opacity: 0.8; }
     
     /* ========== UI OVERLAY ========== */
     .ui-overlay {
@@ -273,7 +222,7 @@
       border-radius: 8px;
       z-index: 50;
       pointer-events: none;
-      display: flex;
+      display: none;
       flex-direction: column;
       align-items: center;
       justify-content: center;
@@ -282,6 +231,7 @@
       text-align: center;
       line-height: 1.3;
     }
+    .marker-guide.active { display: flex; }
     .marker-guide svg {
       width: clamp(24px, 6vw, 32px);
       height: clamp(24px, 6vw, 32px);
@@ -297,57 +247,34 @@
       top: 0;
       left: 0;
     }
-    
-    /* Forzar canvas de AR.js a ocupar todo */
     .a-canvas {
       width: 100% !important;
       height: 100% !important;
     }
     
-    /* ========== RESPONSIVE UTILITIES ========== */
+    /* ========== RESPONSIVE ========== */
     @media (max-width: 380px) {
       .ui-bar { padding: 8px 10px; }
       .ui-bar .btn { padding: 6px 10px; font-size: 11px; }
-      .permission-screen { padding: 16px; }
     }
-    
     @media (max-height: 600px) {
-      .permission-screen .icon-wrap {
-        width: 60px;
-        height: 60px;
-        margin-bottom: 12px;
-      }
-      .permission-screen h2 { margin-bottom: 6px; }
-      .permission-screen p { margin-bottom: 20px; }
+      .arjs-loader h2 { margin-bottom: 6px; }
+      .arjs-loader p { margin-bottom: 0; }
     }
   </style>
 </head>
 <body>
   
-  <!-- ========== PERMISSION SCREEN ========== -->
-  <div class="permission-screen" id="permissionScreen">
-    <div class="icon-wrap">
-      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-        <circle cx="12" cy="13" r="4"/>
-      </svg>
-    </div>
-    <h2>Permiso de cámara</h2>
-    <p>Para ver la experiencia de realidad aumentada, necesitamos acceso a tu cámara. No se graba ni almacena ningún video.</p>
-    <button class="btn-permission" id="grantBtn" onclick="requestPermissions()">Permitir acceso a cámara</button>
-    <div class="hint">Si tu navegador muestra un diálogo adicional, selecciona <strong>Permitir</strong>.</div>
-  </div>
-  
-  <!-- ========== LOADER ========== -->
-  <div class="arjs-loader hidden" id="loader">
+  <!-- ========== LOADER (visible inmediatamente) ========== -->
+  <div class="arjs-loader" id="loader">
     <div class="spinner"></div>
-    <h2>Iniciando AR…</h2>
-    <p id="loaderText">Cargando experiencia</p>
+    <h2 id="loaderTitle">Solicitando acceso a cámara…</h2>
+    <p id="loaderText">Tu navegador mostrará un diálogo de permisos. Selecciona "Permitir".</p>
   </div>
   
-  <!-- ========== ERROR SCREEN ========== -->
+  <!-- ========== ERROR / DENIED SCREEN ========== -->
   <div class="error-screen" id="errorScreen">
-    <div class="icon-wrap">
+    <div class="icon-wrap" id="errorIcon">
       <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ff3b30" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="12" cy="12" r="10"/>
         <line x1="12" y1="8" x2="12" y2="12"/>
@@ -356,7 +283,10 @@
     </div>
     <h2 id="errorTitle">Experiencia no encontrada</h2>
     <p id="errorText">El ID de esta experiencia no existe en este dispositivo.</p>
-    <button class="btn-primary" onclick="window.location.href='index.html'">Ir al panel admin</button>
+    <div class="actions">
+      <button class="btn btn-primary" id="retryBtn" onclick="retryCamera()" style="display:none;">Reintentar acceso a cámara</button>
+      <button class="btn btn-secondary" onclick="window.location.href='index.html'">Ir al panel admin</button>
+    </div>
   </div>
   
   <!-- ========== UI OVERLAY ========== -->
@@ -379,7 +309,7 @@
     🔍 Apunta la cámara al marcador Hiro
   </div>
   
-  <div class="marker-guide" id="markerGuide" style="display:none;">
+  <div class="marker-guide" id="markerGuide">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
       <rect x="3" y="3" width="18" height="18" rx="2"/>
       <circle cx="8.5" cy="8.5" r="1.5"/>
@@ -412,50 +342,124 @@
     const urlParams = new URLSearchParams(window.location.search);
     const expId = urlParams.get('id');
     
-    const permissionScreen = document.getElementById('permissionScreen');
     const loader = document.getElementById('loader');
+    const loaderTitle = document.getElementById('loaderTitle');
     const loaderText = document.getElementById('loaderText');
     const errorScreen = document.getElementById('errorScreen');
+    const errorTitle = document.getElementById('errorTitle');
+    const errorText = document.getElementById('errorText');
+    const errorIcon = document.getElementById('errorIcon');
+    const retryBtn = document.getElementById('retryBtn');
     const scene = document.getElementById('arScene');
     const contentAnchor = document.getElementById('contentAnchor');
     const statusPill = document.getElementById('statusPill');
     const markerGuide = document.getElementById('markerGuide');
     const uiOverlay = document.getElementById('uiOverlay');
     
-    // ===== PERMISSIONS =====
-    async function requestPermissions() {
-      const btn = document.getElementById('grantBtn');
-      btn.textContent = 'Solicitando…';
-      btn.disabled = true;
+    let cameraStream = null;
+    let experienceLoaded = false;
+    
+    // ===== AUTO-REQUEST CAMERA ON LOAD =====
+    window.addEventListener('load', () => {
+      // Pequeño delay para que el navegador termine de renderizar antes del prompt
+      setTimeout(startCameraFlow, 300);
+    });
+    
+    async function startCameraFlow() {
+      // Primero validamos que exista la experiencia
+      if (!expId) {
+        showErrorScreen(
+          'ID no especificado',
+          'No se proporcionó un ID de experiencia en la URL. Escanea un QR válido o ve al panel admin.',
+          false
+        );
+        return;
+      }
+      
+      const experiences = getExperiences();
+      const exp = experiences.find(e => e.id === expId);
+      
+      if (!exp) {
+        showErrorScreen(
+          'Experiencia no encontrada',
+          'Esta experiencia no existe en este dispositivo. Si la creaste en otro navegador, usa Exportar/Importar en el panel admin.',
+          false
+        );
+        return;
+      }
+      
+      // Guardar referencia para usar después
+      window._currentExp = exp;
+      
+      // Solicitar cámara inmediatamente
+      await requestCamera();
+    }
+    
+    async function requestCamera() {
+      loaderTitle.textContent = 'Solicitando acceso a cámara…';
+      loaderText.textContent = 'Tu navegador mostrará un diálogo de permisos. Selecciona "Permitir".';
+      loader.classList.remove('hidden');
+      errorScreen.classList.remove('active');
       
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ 
+        const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: { ideal: 'environment' } },
-          audio: false 
+          audio: false
         });
         
-        window._arCameraStream = stream;
-        permissionScreen.classList.add('hidden');
-        loader.classList.remove('hidden');
-        setTimeout(loadExperience, 300);
+        cameraStream = stream;
+        
+        // Éxito: iniciar AR
+        loaderTitle.textContent = 'Iniciando AR…';
+        loaderText.textContent = 'Cargando detector de marcadores';
+        
+        if (window._currentExp) {
+          initAR(window._currentExp);
+        }
         
       } catch (err) {
-        console.error('Permission error:', err);
-        btn.disabled = false;
-        btn.textContent = 'Reintentar';
+        console.error('Camera error:', err);
         
-        let msg = 'No se pudo acceder a la cámara.';
+        let title = 'No se pudo acceder a la cámara';
+        let msg = 'Ocurrió un error al intentar usar la cámara.';
+        let canRetry = true;
+        
         if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-          msg = 'Permiso de cámara denegado. Ve a la configuración de tu navegador y permite el acceso a la cámara para este sitio.';
+          title = 'Permiso de cámara denegado';
+          msg = 'Necesitamos acceso a la cámara para mostrar la experiencia AR. Ve a la configuración de tu navegador y permite el acceso, luego vuelve a intentar.';
+          canRetry = true;
         } else if (err.name === 'NotFoundError') {
-          msg = 'No se encontró una cámara en este dispositivo.';
+          title = 'Cámara no encontrada';
+          msg = 'No se detectó una cámara en este dispositivo.';
+          canRetry = false;
         } else if (err.name === 'NotReadableError') {
-          msg = 'La cámara está siendo usada por otra aplicación. Cierra otras apps y vuelve a intentar.';
+          title = 'Cámara en uso';
+          msg = 'La cámara está siendo usada por otra aplicación. Ciérrala y vuelve a intentar.';
+          canRetry = true;
         } else if (err.name === 'OverconstrainedError') {
-          msg = 'Tu cámara no soporta el modo "environment". Intenta con la cámara frontal.';
+          title = 'Cámara no compatible';
+          msg = 'Tu dispositivo no soporta el modo de cámara trasera. Intenta con la cámara frontal.';
+          canRetry = true;
+        } else if (err.name === 'SecurityError') {
+          title = 'Conexión no segura';
+          msg = 'AR requiere HTTPS. Asegúrate de acceder por https:// o localhost.';
+          canRetry = false;
         }
-        alert(msg);
+        
+        showErrorScreen(title, msg, canRetry);
       }
+    }
+    
+    function retryCamera() {
+      requestCamera();
+    }
+    
+    function showErrorScreen(title, msg, showRetry) {
+      loader.classList.add('hidden');
+      errorTitle.textContent = title;
+      errorText.textContent = msg;
+      retryBtn.style.display = showRetry ? 'block' : 'none';
+      errorScreen.classList.add('active');
     }
     
     // ===== GIF COMPONENT =====
@@ -505,27 +509,15 @@
       }
     });
     
-    // ===== LOAD EXPERIENCE =====
+    // ===== INIT AR =====
     function getExperiences() {
       try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
       catch { return []; }
     }
     
-    function loadExperience() {
-      if (!expId) {
-        showError('ID no especificado', 'No se proporcionó un ID de experiencia en la URL.');
-        return;
-      }
-      
-      const experiences = getExperiences();
-      const exp = experiences.find(e => e.id === expId);
-      
-      if (!exp) {
-        showError('Experiencia no encontrada',
-          'Esta experiencia no existe en el almacenamiento local de este dispositivo. ' +
-          'Si la creaste en otro navegador, usa "Exportar datos" en el panel admin e "Importar datos" en este dispositivo.');
-        return;
-      }
+    function initAR(exp) {
+      if (experienceLoaded) return;
+      experienceLoaded = true;
       
       document.getElementById('expTitle').textContent = exp.name;
       document.getElementById('expMeta').textContent = exp.target ? 'Target personalizado' : 'Marcador Hiro';
@@ -535,26 +527,29 @@
       scene.style.display = 'block';
       uiOverlay.style.display = 'block';
       statusPill.style.display = 'block';
-      markerGuide.style.display = 'flex';
-      loaderText.textContent = 'Iniciando cámara y detector…';
+      markerGuide.classList.add('active');
+      
+      loaderTitle.textContent = 'Iniciando cámara…';
+      loaderText.textContent = 'Buscando marcador Hiro';
       
       const marker = document.getElementById('hiroMarker');
       marker.addEventListener('markerFound', () => {
         statusPill.textContent = '✅ Marcador detectado';
         statusPill.classList.add('found');
-        markerGuide.style.display = 'none';
+        markerGuide.classList.remove('active');
       });
       marker.addEventListener('markerLost', () => {
         statusPill.textContent = '🔍 Apunta al marcador Hiro';
         statusPill.classList.remove('found');
-        markerGuide.style.display = 'flex';
+        markerGuide.classList.add('active');
       });
       
       scene.addEventListener('loaded', () => {
         setTimeout(() => loader.classList.add('hidden'), 600);
       });
       
-      setTimeout(() => loader.classList.add('hidden'), 6000);
+      // Timeout de seguridad
+      setTimeout(() => loader.classList.add('hidden'), 8000);
     }
     
     function createARContent(exp) {
@@ -589,14 +584,6 @@
       anchor.appendChild(wrapper);
     }
     
-    function showError(title, text) {
-      document.getElementById('errorTitle').textContent = title;
-      document.getElementById('errorText').textContent = text;
-      errorScreen.classList.add('active');
-      loader.classList.add('hidden');
-      permissionScreen.classList.add('hidden');
-    }
-    
     function toggleFullscreen() {
       if (!document.fullscreenElement) {
         document.documentElement.requestFullscreen().catch(() => {});
@@ -605,17 +592,9 @@
       }
     }
     
-    // ===== INIT =====
-    window.addEventListener('load', () => {
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-      if (!isMobile) requestPermissions();
-    });
-    
     // Handle orientation change
     window.addEventListener('orientationchange', () => {
-      setTimeout(() => {
-        window.scrollTo(0, 0);
-      }, 200);
+      setTimeout(() => window.scrollTo(0, 0), 200);
     });
   </script>
 </body>
