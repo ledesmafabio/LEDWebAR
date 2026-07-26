@@ -8,24 +8,22 @@
   <meta name="theme-color" content="#000000">
   <title>LED AR Experience Creator — Visor</title>
   
-  <!-- A-Frame + AR.js -->
   <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
   <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/gifler@0.1.0/gifler.min.js"></script>
   
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-    
     html, body {
       width: 100%;
       height: 100%;
       overflow: hidden;
       background: #000;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       touch-action: none;
     }
     
-    /* ========== LOADER ========== */
+    /* ========== LOADER (encima de todo) ========== */
     .arjs-loader {
       position: fixed;
       inset: 0;
@@ -42,7 +40,10 @@
       padding-bottom: max(24px, env(safe-area-inset-bottom));
       transition: opacity 0.4s;
     }
-    .arjs-loader.hidden { opacity: 0; pointer-events: none; }
+    .arjs-loader.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
     .arjs-loader h2 {
       font-size: clamp(18px, 4.5vw, 22px);
       font-weight: 600;
@@ -65,7 +66,7 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
     
-    /* ========== ERROR / DENIED SCREEN ========== */
+    /* ========== ERROR SCREEN ========== */
     .error-screen {
       position: fixed;
       inset: 0;
@@ -119,6 +120,7 @@
       border: none;
       min-height: 48px;
       transition: opacity 0.2s;
+      -webkit-tap-highlight-color: transparent;
     }
     .error-screen .btn-primary {
       background: #0071e3;
@@ -182,6 +184,7 @@
       display: flex;
       align-items: center;
       gap: 4px;
+      -webkit-tap-highlight-color: transparent;
     }
     .ui-bar .btn:active { background: rgba(255,255,255,0.25); }
     
@@ -206,9 +209,7 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
-    .status-pill.found {
-      background: rgba(52,199,89,0.85);
-    }
+    .status-pill.found { background: rgba(52,199,89,0.85); }
     
     /* ========== MARKER GUIDE ========== */
     .marker-guide {
@@ -239,7 +240,7 @@
       opacity: 0.5;
     }
     
-    /* ========== A-FRAME FIXES ========== */
+    /* ========== A-FRAME ========== */
     a-scene {
       width: 100vw !important;
       height: 100vh !important;
@@ -251,45 +252,43 @@
       width: 100% !important;
       height: 100% !important;
     }
+    video {
+      object-fit: cover !important;
+    }
     
-    /* ========== RESPONSIVE ========== */
     @media (max-width: 380px) {
       .ui-bar { padding: 8px 10px; }
       .ui-bar .btn { padding: 6px 10px; font-size: 11px; }
-    }
-    @media (max-height: 600px) {
-      .arjs-loader h2 { margin-bottom: 6px; }
-      .arjs-loader p { margin-bottom: 0; }
     }
   </style>
 </head>
 <body>
   
-  <!-- ========== LOADER (visible inmediatamente) ========== -->
+  <!-- Loader -->
   <div class="arjs-loader" id="loader">
     <div class="spinner"></div>
-    <h2 id="loaderTitle">Solicitando acceso a cámara…</h2>
-    <p id="loaderText">Tu navegador mostrará un diálogo de permisos. Selecciona "Permitir".</p>
+    <h2 id="loaderTitle">Iniciando cámara…</h2>
+    <p id="loaderText">Solicitando permiso de acceso</p>
   </div>
   
-  <!-- ========== ERROR / DENIED SCREEN ========== -->
+  <!-- Error -->
   <div class="error-screen" id="errorScreen">
-    <div class="icon-wrap" id="errorIcon">
+    <div class="icon-wrap">
       <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ff3b30" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="12" cy="12" r="10"/>
         <line x1="12" y1="8" x2="12" y2="12"/>
         <line x1="12" y1="16" x2="12.01" y2="16"/>
       </svg>
     </div>
-    <h2 id="errorTitle">Experiencia no encontrada</h2>
-    <p id="errorText">El ID de esta experiencia no existe en este dispositivo.</p>
+    <h2 id="errorTitle">Error</h2>
+    <p id="errorText">No se pudo acceder a la cámara.</p>
     <div class="actions">
-      <button class="btn btn-primary" id="retryBtn" onclick="retryCamera()" style="display:none;">Reintentar acceso a cámara</button>
+      <button class="btn btn-primary" id="retryBtn" onclick="retryCamera()" style="display:none;">Reintentar</button>
       <button class="btn btn-secondary" onclick="window.location.href='index.html'">Ir al panel admin</button>
     </div>
   </div>
   
-  <!-- ========== UI OVERLAY ========== -->
+  <!-- UI -->
   <div class="ui-overlay" id="uiOverlay" style="display:none;">
     <div class="ui-bar">
       <div style="min-width:0;">
@@ -305,9 +304,7 @@
     </div>
   </div>
   
-  <div class="status-pill" id="statusPill" style="display:none;">
-    🔍 Apunta la cámara al marcador Hiro
-  </div>
+  <div class="status-pill" id="statusPill" style="display:none;">🔍 Apunta la cámara al marcador Hiro</div>
   
   <div class="marker-guide" id="markerGuide">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -318,14 +315,13 @@
     <span>Marcador<br>Hiro</span>
   </div>
   
-  <!-- ========== A-FRAME SCENE ========== -->
-  <a-scene 
-    embedded 
-    arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;" 
+  <!-- A-Frame Scene: SIEMPRE presente, NO display:none -->
+  <a-scene
+    embedded
+    arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;"
     vr-mode-ui="enabled: false"
     renderer="logarithmicDepthBuffer: true; precision: medium; antialias: false;"
-    id="arScene"
-    style="display:none;">
+    id="arScene">
     
     <a-assets id="assetsContainer" timeout="10000"></a-assets>
     
@@ -337,7 +333,6 @@
   </a-scene>
 
   <script>
-    // ===== CONFIG =====
     const STORAGE_KEY = 'ar-web-experiences';
     const urlParams = new URLSearchParams(window.location.search);
     const expId = urlParams.get('id');
@@ -348,7 +343,6 @@
     const errorScreen = document.getElementById('errorScreen');
     const errorTitle = document.getElementById('errorTitle');
     const errorText = document.getElementById('errorText');
-    const errorIcon = document.getElementById('errorIcon');
     const retryBtn = document.getElementById('retryBtn');
     const scene = document.getElementById('arScene');
     const contentAnchor = document.getElementById('contentAnchor');
@@ -356,105 +350,90 @@
     const markerGuide = document.getElementById('markerGuide');
     const uiOverlay = document.getElementById('uiOverlay');
     
-    let cameraStream = null;
     let experienceLoaded = false;
+    let cameraCheckInterval = null;
     
-    // ===== AUTO-REQUEST CAMERA ON LOAD =====
+    // ===== AUTO-START: fuerza el prompt del sistema inmediatamente =====
     window.addEventListener('load', () => {
-      // Pequeño delay para que el navegador termine de renderizar antes del prompt
-      setTimeout(startCameraFlow, 300);
+      setTimeout(startFlow, 200);
     });
     
-    async function startCameraFlow() {
-      // Primero validamos que exista la experiencia
+    async function startFlow() {
+      // 1. Validar ID
       if (!expId) {
-        showErrorScreen(
-          'ID no especificado',
-          'No se proporcionó un ID de experiencia en la URL. Escanea un QR válido o ve al panel admin.',
-          false
-        );
+        showError('ID no especificado', 'No se proporcionó un ID de experiencia en la URL.', false);
         return;
       }
       
       const experiences = getExperiences();
       const exp = experiences.find(e => e.id === expId);
-      
       if (!exp) {
-        showErrorScreen(
-          'Experiencia no encontrada',
-          'Esta experiencia no existe en este dispositivo. Si la creaste en otro navegador, usa Exportar/Importar en el panel admin.',
-          false
-        );
+        showError('Experiencia no encontrada',
+          'Esta experiencia no existe en este dispositivo. Usa Exportar/Importar en el panel admin.', false);
         return;
       }
       
-      // Guardar referencia para usar después
       window._currentExp = exp;
       
-      // Solicitar cámara inmediatamente
-      await requestCamera();
-    }
-    
-    async function requestCamera() {
-      loaderTitle.textContent = 'Solicitando acceso a cámara…';
-      loaderText.textContent = 'Tu navegador mostrará un diálogo de permisos. Selecciona "Permitir".';
-      loader.classList.remove('hidden');
-      errorScreen.classList.remove('active');
-      
+      // 2. Forzar el prompt nativo del navegador inmediatamente
+      // Hacemos getUserMedia, detenemos el stream, y dejamos que AR.js tome el control
       try {
+        loaderTitle.textContent = 'Solicitando acceso…';
+        loaderText.textContent = 'Tu navegador mostrará un diálogo de permisos';
+        
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: { ideal: 'environment' } },
           audio: false
         });
         
-        cameraStream = stream;
+        // ¡Importante! Detener TODOS los tracks para liberar la cámara
+        // AR.js la volverá a pedir, pero el permiso ya estará concedido
+        stream.getTracks().forEach(track => track.stop());
         
-        // Éxito: iniciar AR
-        loaderTitle.textContent = 'Iniciando AR…';
-        loaderText.textContent = 'Cargando detector de marcadores';
-        
-        if (window._currentExp) {
-          initAR(window._currentExp);
-        }
+        // 3. Inicializar AR
+        initAR(exp);
         
       } catch (err) {
-        console.error('Camera error:', err);
-        
-        let title = 'No se pudo acceder a la cámara';
-        let msg = 'Ocurrió un error al intentar usar la cámara.';
-        let canRetry = true;
-        
-        if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-          title = 'Permiso de cámara denegado';
-          msg = 'Necesitamos acceso a la cámara para mostrar la experiencia AR. Ve a la configuración de tu navegador y permite el acceso, luego vuelve a intentar.';
-          canRetry = true;
-        } else if (err.name === 'NotFoundError') {
-          title = 'Cámara no encontrada';
-          msg = 'No se detectó una cámara en este dispositivo.';
-          canRetry = false;
-        } else if (err.name === 'NotReadableError') {
-          title = 'Cámara en uso';
-          msg = 'La cámara está siendo usada por otra aplicación. Ciérrala y vuelve a intentar.';
-          canRetry = true;
-        } else if (err.name === 'OverconstrainedError') {
-          title = 'Cámara no compatible';
-          msg = 'Tu dispositivo no soporta el modo de cámara trasera. Intenta con la cámara frontal.';
-          canRetry = true;
-        } else if (err.name === 'SecurityError') {
-          title = 'Conexión no segura';
-          msg = 'AR requiere HTTPS. Asegúrate de acceder por https:// o localhost.';
-          canRetry = false;
-        }
-        
-        showErrorScreen(title, msg, canRetry);
+        handleCameraError(err);
       }
     }
     
-    function retryCamera() {
-      requestCamera();
+    function handleCameraError(err) {
+      console.error('Camera permission error:', err);
+      let title = 'No se pudo acceder a la cámara';
+      let msg = 'Ocurrió un error inesperado.';
+      let canRetry = true;
+      
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        title = 'Permiso denegado';
+        msg = 'Necesitamos acceso a la cámara para la experiencia AR. Ve a la configuración de tu navegador, permite la cámara para este sitio, y vuelve a intentar.';
+        canRetry = true;
+      } else if (err.name === 'NotFoundError') {
+        title = 'Cámara no encontrada';
+        msg = 'No se detectó una cámara en este dispositivo.';
+        canRetry = false;
+      } else if (err.name === 'NotReadableError') {
+        title = 'Cámara en uso';
+        msg = 'Otra aplicación está usando la cámara. Ciérrala y vuelve a intentar.';
+        canRetry = true;
+      } else if (err.name === 'OverconstrainedError') {
+        title = 'Cámara no compatible';
+        msg = 'No se pudo usar la cámara trasera. Intenta con otro dispositivo.';
+        canRetry = false;
+      } else if (err.name === 'SecurityError') {
+        title = 'Conexión no segura';
+        msg = 'AR requiere HTTPS o localhost. Asegúrate de usar una conexión segura.';
+        canRetry = false;
+      }
+      
+      showError(title, msg, canRetry);
     }
     
-    function showErrorScreen(title, msg, showRetry) {
+    function retryCamera() {
+      startFlow();
+    }
+    
+    function showError(title, msg, showRetry) {
       loader.classList.add('hidden');
       errorTitle.textContent = title;
       errorText.textContent = msg;
@@ -490,10 +469,7 @@
         
         if (typeof gifler !== 'undefined') {
           gifler(src).get((err, anim) => {
-            if (err) {
-              console.error('GIF error:', err);
-              return;
-            }
+            if (err) { console.error('GIF error:', err); return; }
             anim.animateInCanvas(canvas);
             const loop = () => { texture.needsUpdate = true; requestAnimationFrame(loop); };
             loop();
@@ -524,12 +500,11 @@
       
       createARContent(exp);
       
-      scene.style.display = 'block';
       uiOverlay.style.display = 'block';
       statusPill.style.display = 'block';
       markerGuide.classList.add('active');
       
-      loaderTitle.textContent = 'Iniciando cámara…';
+      loaderTitle.textContent = 'Iniciando AR…';
       loaderText.textContent = 'Buscando marcador Hiro';
       
       const marker = document.getElementById('hiroMarker');
@@ -544,12 +519,27 @@
         markerGuide.classList.add('active');
       });
       
-      scene.addEventListener('loaded', () => {
-        setTimeout(() => loader.classList.add('hidden'), 600);
-      });
+      // Detectar cuando AR.js realmente muestra la cámara
+      startCameraDetection();
       
-      // Timeout de seguridad
-      setTimeout(() => loader.classList.add('hidden'), 8000);
+      // Fallback por si AR.js nunca levanta la cámara
+      setTimeout(() => {
+        if (!loader.classList.contains('hidden')) {
+          loader.classList.add('hidden');
+        }
+      }, 10000);
+    }
+    
+    function startCameraDetection() {
+      // AR.js crea un elemento <video> cuando la cámara está lista
+      // Poll cada 300ms buscando el video y verificando que esté playing
+      cameraCheckInterval = setInterval(() => {
+        const video = document.querySelector('video');
+        if (video && video.readyState >= 2 && video.videoWidth > 0) {
+          clearInterval(cameraCheckInterval);
+          loader.classList.add('hidden');
+        }
+      }, 300);
     }
     
     function createARContent(exp) {
@@ -592,7 +582,6 @@
       }
     }
     
-    // Handle orientation change
     window.addEventListener('orientationchange', () => {
       setTimeout(() => window.scrollTo(0, 0), 200);
     });
