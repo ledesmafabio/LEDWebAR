@@ -184,9 +184,10 @@
    Lee una experiencia y la muestra anclada a un marcador impreso.
 
    Formas de pasarle la experiencia:
-     visor.html?exp=experiencia.json     → archivo JSON junto al visor
-     visor.html?exp=local:preview        → guardada en localStorage (vista previa del editor)
-     visor.html#d=<base64url del JSON>   → experiencia embebida en el propio enlace
+     viewer.html?id=ar-xxxx     → busca experiencias/ar-xxxx.json en el repo,
+                                  y si no está, el borrador de este navegador
+     viewer.html?exp=algo.json  → un archivo suelto junto al visor
+     viewer.html#d=<base64url>  → experiencia embebida en el propio enlace
    ═══════════════════════════════════════════════════════════════════ */
 
 const $ = (s) => document.querySelector(s);
@@ -258,23 +259,75 @@ function revisarEntorno(){
   return true;
 }
 
-/* ---------- carga de la experiencia ---------- */
+/* ───────── almacén local (mismo esquema que el editor) ───────── */
+const DB = {
+  abrir(){
+    return new Promise((res, rej) => {
+      const p = indexedDB.open('webar', 1);
+      p.onupgradeneeded = () => {
+        const db = p.result;
+        if (!db.objectStoreNames.contains('exp')) db.createObjectStore('exp', { keyPath: 'id' });
+      };
+      p.onsuccess = () => res(p.result);
+      p.onerror = () => rej(p.error);
+    });
+  },
+  obtener(id){
+    return DB.abrir().then(db => new Promise((res, rej) => {
+      const t = db.transaction('exp', 'readonly');
+      const pedido = t.objectStore('exp').get(id);
+      t.oncomplete = () => res(pedido.result);
+      t.onerror = () => rej(t.error);
+    }));
+  }
+};
+
+const CARPETA = 'experiencias';   // dónde viven los .json publicados en el repo
+
+/* ───────── carga de la experiencia ─────────
+   Orden de búsqueda para ?id=
+     1. experiencias/<id>.json  → la versión publicada en el repositorio
+     2. IndexedDB de este navegador → el borrador local, para probar sin subir nada
+   Así un mismo QR sirve mientras se prueba y después, sin cambiar el enlace. */
 async function cargarExperiencia(){
   const params = new URLSearchParams(location.search);
   const hash = new URLSearchParams(location.hash.replace(/^#/, ''));
-  const embebida = hash.get('d') || params.get('d');
 
+  const embebida = hash.get('d') || params.get('d');
   if (embebida) return JSON.parse(deBase64Url(embebida));
 
-  const exp = params.get('exp') || 'experiencia.json';
-  if (exp.startsWith('local:')){
-    const crudo = localStorage.getItem('webar_' + exp.slice(6));
-    if (!crudo) throw new Error('No hay una vista previa guardada en este navegador.');
-    return JSON.parse(crudo);
+  const id = params.get('id');
+  if (id){
+    if (!/^[\w-]{1,64}$/.test(id)) throw new Error('El identificador de la experiencia no es válido.');
+    try {
+      const r = await fetch(`${CARPETA}/${id}.json`, { cache: 'no-store' });
+      if (r.ok) return await r.json();
+    } catch (e){ /* sin publicar todavía: probamos el almacén local */ }
+
+    let local = null;
+    try { local = await DB.obtener(id); } catch (e){ /* navegador sin IndexedDB */ }
+    if (local) return local;
+
+    const err = new Error('Esta experiencia no está publicada y tampoco está guardada en este navegador.');
+    err.pasos = [
+      `Desde el editor, descargá el archivo ${id}.json con el botón "Repo".`,
+      `Subilo al repositorio dentro de la carpeta ${CARPETA}/ y confirmá el commit.`,
+      'Esperá a que GitHub Pages termine de publicar y volvé a escanear el mismo QR.'
+    ];
+    throw err;
   }
-  const r = await fetch(exp, { cache: 'no-store' });
-  if (!r.ok) throw new Error(`No se encontró ${exp} (HTTP ${r.status}).`);
-  return r.json();
+
+  // Compatibilidad: un archivo suelto junto al visor
+  const exp = params.get('exp');
+  if (exp){
+    const r = await fetch(exp, { cache: 'no-store' });
+    if (!r.ok) throw new Error(`No se encontró ${exp} (HTTP ${r.status}).`);
+    return r.json();
+  }
+
+  const err = new Error('El enlace no indica qué experiencia mostrar.');
+  err.pasos = ['Escaneá el QR que genera el editor, o abrí el editor para elegir una experiencia.'];
+  throw err;
 }
 
 /* ═══════════ componente de capa ═══════════
@@ -559,8 +612,7 @@ function manejarErrorCamara(e){
   } catch (e){
     mostrarError('No se encontró la experiencia',
       e.message || 'El visor no pudo leer los datos de la experiencia.',
-      ['Verificá que el archivo experiencia.json esté publicado junto a visor.html.',
-       'Si escaneaste un QR viejo, generá uno nuevo desde el editor.']);
+      e.pasos || ['Volvé al editor y generá el QR de nuevo.']);
     return;
   }
 
