@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#101215">
+<title>Visor AR</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<script src="https://cdn.jsdelivr.net/npm/aframe@1.4.2/dist/aframe.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+
+<style>
+  :root{
+    --grafito:#101215;
+    --grafito-alto:#1A1D22;
+    --linea:#2C3138;
+    --papel:#F5F3EE;
+    --texto:#E7E5E0;
+    --texto-tenue:#9AA0A8;
+    --rojo:#E8433A;
+    --cian:#21C3D6;
+    --radio:14px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--grafito);color:var(--texto);
+    font-family:'Archivo',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased;
+    overscroll-behavior:none}
+  body{overflow:hidden}
+  .mono{font-family:'IBM Plex Mono',ui-monospace,monospace}
+
+  /* ---------- pantallas ---------- */
+  .pantalla{position:fixed;inset:0;z-index:50;display:none;flex-direction:column;
+    padding:calc(env(safe-area-inset-top) + 26px) 22px calc(env(safe-area-inset-bottom) + 26px);
+    background:var(--grafito);overflow-y:auto}
+  .pantalla.activa{display:flex}
+  .marca{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--texto-tenue)}
+  .titulo{font-size:clamp(28px,8vw,44px);line-height:1.02;font-weight:800;letter-spacing:-.03em;margin:14px 0 0}
+  /* firma anaglífica: desfase rojo/cian, como el 3D estereoscópico impreso */
+  .titulo span{position:relative;display:inline-block}
+  .titulo span::before,.titulo span::after{content:attr(data-t);position:absolute;inset:0;pointer-events:none;
+    mix-blend-mode:screen;opacity:.55}
+  .titulo span::before{color:var(--rojo);transform:translateX(-2.5px)}
+  .titulo span::after{color:var(--cian);transform:translateX(2.5px)}
+  .desc{color:var(--texto-tenue);font-size:15.5px;line-height:1.55;margin:14px 0 0;max-width:46ch}
+
+  .tarjeta{margin-top:26px;background:var(--grafito-alto);border:1px solid var(--linea);
+    border-radius:var(--radio);padding:18px}
+  .tarjeta h2{margin:0 0 12px;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--texto-tenue);font-weight:500}
+  .pasos{margin:0;padding:0;list-style:none;display:grid;gap:12px}
+  .pasos li{display:grid;grid-template-columns:26px 1fr;gap:12px;align-items:start;font-size:14.5px;line-height:1.45}
+  .pasos .n{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--cian);
+    border:1px solid var(--linea);border-radius:6px;text-align:center;padding:3px 0}
+  .previa{margin-top:18px;display:flex;gap:14px;align-items:center}
+  .previa img{width:88px;border-radius:8px;background:var(--papel);border:1px solid var(--linea)}
+  .previa p{margin:0;font-size:13px;color:var(--texto-tenue);line-height:1.45}
+
+  .espaciador{flex:1;min-height:24px}
+  .acciones{position:sticky;bottom:0;padding-top:14px;background:linear-gradient(transparent,var(--grafito) 30%)}
+  button.principal{width:100%;border:0;border-radius:12px;padding:17px 20px;font-family:inherit;
+    font-size:16px;font-weight:700;letter-spacing:-.01em;background:var(--papel);color:#0C0D0F;cursor:pointer}
+  button.principal:active{transform:translateY(1px)}
+  button.secundaria{width:100%;margin-top:10px;background:transparent;color:var(--texto-tenue);
+    border:1px solid var(--linea);border-radius:12px;padding:13px;font-family:inherit;font-size:14px;cursor:pointer}
+  .nota{margin-top:12px;font-size:12px;color:var(--texto-tenue);text-align:center;line-height:1.5}
+  :focus-visible{outline:2px solid var(--cian);outline-offset:3px}
+
+  /* ---------- superposición AR ---------- */
+  #ar-ui{position:fixed;inset:0;z-index:20;pointer-events:none;display:none}
+  #ar-ui.activa{display:block}
+  .aviso{position:absolute;left:50%;transform:translateX(-50%);
+    bottom:calc(env(safe-area-inset-bottom) + 28px);
+    background:rgba(16,18,21,.82);backdrop-filter:blur(10px);
+    border:1px solid var(--linea);border-radius:999px;padding:11px 20px;
+    font-size:13.5px;letter-spacing:.01em;white-space:nowrap;transition:opacity .25s}
+  .aviso.oculto{opacity:0}
+  .barra-sup{position:absolute;top:calc(env(safe-area-inset-top) + 14px);left:14px;right:14px;
+    display:flex;gap:10px;align-items:center;justify-content:space-between}
+  .chip{pointer-events:auto;background:rgba(16,18,21,.72);backdrop-filter:blur(10px);
+    border:1px solid var(--linea);color:var(--texto);border-radius:999px;
+    padding:9px 15px;font-family:inherit;font-size:13px;cursor:pointer}
+  .chip.etiqueta{cursor:default;font-family:'IBM Plex Mono',monospace;font-size:11px;
+    letter-spacing:.1em;text-transform:uppercase;color:var(--texto-tenue)}
+
+  /* retícula de encuadre: cuatro escuadras, como marcas de registro de imprenta */
+  .reticula{position:absolute;top:50%;left:50%;width:min(64vw,64vh);height:min(64vw,64vh);
+    transform:translate(-50%,-50%);opacity:.85;transition:opacity .3s}
+  .reticula.oculta{opacity:0}
+  .reticula i{position:absolute;width:26px;height:26px;border:2px solid var(--papel);opacity:.9}
+  .reticula i:nth-child(1){top:0;left:0;border-right:0;border-bottom:0}
+  .reticula i:nth-child(2){top:0;right:0;border-left:0;border-bottom:0}
+  .reticula i:nth-child(3){bottom:0;left:0;border-right:0;border-top:0}
+  .reticula i:nth-child(4){bottom:0;right:0;border-left:0;border-top:0}
+
+  #lupa{position:fixed;inset:0;z-index:60;display:none;background:rgba(10,11,13,.94);
+    align-items:center;justify-content:center;flex-direction:column;gap:18px;padding:22px}
+  #lupa.activa{display:flex}
+  #lupa img{max-width:min(92vw,420px);max-height:70vh;border-radius:10px;background:#fff}
+
+  /* el visor de a-frame va detrás de todo */
+  a-scene{position:fixed;inset:0;z-index:1}
+  video[data-capa]{display:none}
+  @media (prefers-reduced-motion: reduce){*{transition:none !important;animation:none !important}}
+</style>
+</head>
+<body>
+
+<!-- ══════════ inicio ══════════ -->
+<section class="pantalla activa" id="p-inicio">
+  <div class="marca">Realidad aumentada web</div>
+  <h1 class="titulo"><span id="exp-titulo" data-t="Experiencia">Experiencia</span></h1>
+  <p class="desc" id="exp-desc"></p>
+
+  <div class="tarjeta">
+    <h2>Cómo se ve</h2>
+    <ol class="pasos">
+      <li><span class="n">01</span><span>Tocá <b>Activar cámara</b> y aceptá el permiso que pide el navegador.</span></li>
+      <li><span class="n">02</span><span>Apuntá la cámara al marcador impreso o mostrado en otra pantalla.</span></li>
+      <li><span class="n">03</span><span>Mantené el marcador completo dentro del encuadre y bien iluminado.</span></li>
+    </ol>
+    <div class="previa" id="bloque-previa" hidden>
+      <img id="img-previa" alt="Marcador de la experiencia">
+      <p>Este es el marcador que tenés que enfocar. Tocá la imagen para verla en grande.</p>
+    </div>
+  </div>
+
+  <div class="espaciador"></div>
+
+  <div class="acciones">
+    <button class="principal" id="btn-activar">Activar cámara</button>
+    <p class="nota mono" id="nota-inicio">El video se procesa en tu dispositivo. Nada se sube a ningún servidor.</p>
+  </div>
+</section>
+
+<!-- ══════════ cargando ══════════ -->
+<section class="pantalla" id="p-cargando">
+  <div class="espaciador"></div>
+  <div style="text-align:center">
+    <div class="marca">Preparando</div>
+    <h1 class="titulo" style="font-size:26px"><span id="txt-cargando" data-t="Iniciando cámara">Iniciando cámara</span></h1>
+    <p class="nota mono" id="txt-progreso">—</p>
+  </div>
+  <div class="espaciador"></div>
+</section>
+
+<!-- ══════════ error ══════════ -->
+<section class="pantalla" id="p-error">
+  <div class="marca">No se pudo iniciar</div>
+  <h1 class="titulo" style="font-size:30px"><span id="err-titulo" data-t="Algo falló">Algo falló</span></h1>
+  <p class="desc" id="err-desc"></p>
+  <div class="tarjeta" id="err-ayuda-caja" hidden>
+    <h2>Cómo resolverlo</h2>
+    <ol class="pasos" id="err-ayuda"></ol>
+  </div>
+  <div class="espaciador"></div>
+  <div class="acciones">
+    <button class="principal" id="btn-reintentar">Reintentar</button>
+  </div>
+</section>
+
+<!-- ══════════ interfaz sobre la cámara ══════════ -->
+<div id="ar-ui">
+  <div class="barra-sup">
+    <span class="chip etiqueta" id="chip-titulo">AR</span>
+    <button class="chip" id="btn-ver-marcador">Ver marcador</button>
+  </div>
+  <div class="reticula" id="reticula"><i></i><i></i><i></i><i></i></div>
+  <div class="aviso" id="aviso">Buscando el marcador…</div>
+</div>
+
+<div id="lupa">
+  <img id="lupa-img" alt="Marcador ampliado">
+  <button class="chip" id="btn-cerrar-lupa">Cerrar</button>
+</div>
+
+<div id="medios-ocultos" aria-hidden="true"></div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════
+   VISOR AR — Realidad Aumentada Web
+   Lee una experiencia y la muestra anclada a un marcador impreso.
+
+   Formas de pasarle la experiencia:
+     visor.html?exp=experiencia.json     → archivo JSON junto al visor
+     visor.html?exp=local:preview        → guardada en localStorage (vista previa del editor)
+     visor.html#d=<base64url del JSON>   → experiencia embebida en el propio enlace
+   ═══════════════════════════════════════════════════════════════════ */
+
+const $ = (s) => document.querySelector(s);
+const videosCapa = [];      // para desbloquear la reproducción con el gesto del usuario
+let experiencia = null;
+let escenaEl = null;
+let urlMind = null;
+
+/* ---------- utilidades ---------- */
+function pantalla(id){
+  document.querySelectorAll('.pantalla').forEach(p => p.classList.toggle('activa', p.id === id));
+}
+function fijarTitulo(el, texto){ el.textContent = texto; el.dataset.t = texto; }
+
+function deBase64Url(s){
+  s = s.replace(/-/g,'+').replace(/_/g,'/');
+  while (s.length % 4) s += '=';
+  const bin = atob(s);
+  const bytes = Uint8Array.from(bin, c => c.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
+function base64ABlobUrl(b64, tipo){
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return URL.createObjectURL(new Blob([bytes], { type: tipo }));
+}
+
+function mostrarError(titulo, desc, pasos){
+  fijarTitulo($('#err-titulo'), titulo);
+  $('#err-desc').textContent = desc;
+  const caja = $('#err-ayuda-caja'), lista = $('#err-ayuda');
+  lista.innerHTML = '';
+  if (pasos && pasos.length){
+    pasos.forEach((p, i) => {
+      const li = document.createElement('li');
+      li.innerHTML = `<span class="n">${String(i+1).padStart(2,'0')}</span><span></span>`;
+      li.lastChild.textContent = p;
+      lista.appendChild(li);
+    });
+    caja.hidden = false;
+  } else caja.hidden = true;
+  pantalla('p-error');
+}
+
+/* ---------- diagnóstico del entorno ---------- */
+const ua = navigator.userAgent || '';
+const esNavegadorIncrustado = /FBAN|FBAV|Instagram|Line\/|Twitter|MicroMessenger|TikTok|Snapchat/i.test(ua);
+const esIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+function revisarEntorno(){
+  const local = ['localhost','127.0.0.1'].includes(location.hostname);
+  if (!window.isSecureContext && !local){
+    mostrarError('Falta HTTPS',
+      'Los navegadores solo dan acceso a la cámara en sitios servidos por HTTPS. Esta página se abrió por HTTP.',
+      ['Pedile a quien publicó la experiencia el enlace en https://',
+       'Si estás probando en tu máquina, usá localhost o un túnel con HTTPS.']);
+    return false;
+  }
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    mostrarError('Cámara no disponible',
+      'Este navegador no expone la cámara a las páginas web.',
+      ['Abrí el enlace en Safari (iOS) o en Chrome (Android).']);
+    return false;
+  }
+  if (esNavegadorIncrustado){
+    $('#nota-inicio').textContent = 'Estás en un navegador dentro de otra app. Si la cámara no arranca, abrí el enlace en Safari o Chrome.';
+  }
+  return true;
+}
+
+/* ---------- carga de la experiencia ---------- */
+async function cargarExperiencia(){
+  const params = new URLSearchParams(location.search);
+  const hash = new URLSearchParams(location.hash.replace(/^#/, ''));
+  const embebida = hash.get('d') || params.get('d');
+
+  if (embebida) return JSON.parse(deBase64Url(embebida));
+
+  const exp = params.get('exp') || 'experiencia.json';
+  if (exp.startsWith('local:')){
+    const crudo = localStorage.getItem('webar_' + exp.slice(6));
+    if (!crudo) throw new Error('No hay una vista previa guardada en este navegador.');
+    return JSON.parse(crudo);
+  }
+  const r = await fetch(exp, { cache: 'no-store' });
+  if (!r.ok) throw new Error(`No se encontró ${exp} (HTTP ${r.status}).`);
+  return r.json();
+}
+
+/* ═══════════ componente de capa ═══════════
+   Una sola pieza dibuja los tres tipos de contenido:
+   imagen fija, imagen animada (GIF) y video corto.        */
+AFRAME.registerComponent('capa-media', {
+  schema: {
+    tipo:      { type: 'string',  default: 'imagen' },
+    src:       { type: 'string',  default: '' },
+    ancho:     { type: 'number',  default: 0.5 },
+    opacidad:  { type: 'number',  default: 1 },
+    orden:     { type: 'int',     default: 0 },
+    bucle:     { type: 'boolean', default: true },
+    silencio:  { type: 'boolean', default: true }
+  },
+
+  init(){
+    const d = this.data;
+    this.material = new THREE.MeshBasicMaterial({
+      transparent: true, opacity: d.opacidad,
+      side: THREE.DoubleSide, depthWrite: false, depthTest: false
+    });
+    this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), this.material);
+    this.mesh.renderOrder = 10 + d.orden;   // el orden de capas manda sobre la profundidad
+    this.mesh.visible = false;
+    this.el.setObject3D('mesh', this.mesh);
+
+    if (d.tipo === 'video')     this.iniciarVideo();
+    else if (d.tipo === 'gif')  this.iniciarGif();
+    else                        this.iniciarImagen();
+
+    const objetivo = this.el.closest('[mindar-image-target]');
+    if (objetivo){
+      objetivo.addEventListener('targetFound', () => this.alEncontrar());
+      objetivo.addEventListener('targetLost',  () => this.alPerder());
+    }
+  },
+
+  aplicarProporcion(w, h){
+    const d = this.data;
+    this.mesh.scale.set(d.ancho, d.ancho * (h / Math.max(w, 1)), 1);
+    this.mesh.visible = true;
+  },
+
+  aSRGB(tex){
+    if ('colorSpace' in tex && THREE.SRGBColorSpace) tex.colorSpace = THREE.SRGBColorSpace;
+    else if (THREE.sRGBEncoding !== undefined) tex.encoding = THREE.sRGBEncoding;
+    return tex;
+  },
+
+  iniciarImagen(){
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const tex = this.aSRGB(new THREE.Texture(img));
+      tex.needsUpdate = true;
+      this.material.map = tex;
+      this.material.needsUpdate = true;
+      this.aplicarProporcion(img.naturalWidth, img.naturalHeight);
+    };
+    img.onerror = () => console.warn('[capa] no se pudo cargar la imagen', this.data.src);
+    img.src = this.data.src;
+  },
+
+  /* Un GIF no se anima solo dentro de WebGL: el navegador sí lo anima en un
+     <img>, así que lo copiamos cuadro a cuadro a un canvas y usamos ese canvas
+     como textura. */
+  iniciarGif(){
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const c = document.createElement('canvas');
+      c.width = img.naturalWidth; c.height = img.naturalHeight;
+      this.ctxGif = c.getContext('2d');
+      this.imgGif = img;
+      const tex = this.aSRGB(new THREE.CanvasTexture(c));
+      this.texGif = tex;
+      this.material.map = tex;
+      this.material.needsUpdate = true;
+      this.ultimoCuadro = 0;
+      this.aplicarProporcion(img.naturalWidth, img.naturalHeight);
+    };
+    img.onerror = () => console.warn('[capa] no se pudo cargar el GIF', this.data.src);
+    img.src = this.data.src;
+  },
+
+  iniciarVideo(){
+    const v = document.createElement('video');
+    v.src = this.data.src;
+    v.crossOrigin = 'anonymous';
+    v.loop = this.data.bucle;
+    v.muted = this.data.silencio;      // iOS no reproduce solo si tiene audio
+    v.defaultMuted = this.data.silencio;
+    v.playsInline = true;
+    v.setAttribute('playsinline', '');
+    v.setAttribute('webkit-playsinline', '');
+    v.setAttribute('data-capa', '');
+    v.preload = 'auto';
+    document.getElementById('medios-ocultos').appendChild(v);
+    videosCapa.push(v);
+    this.video = v;
+
+    v.addEventListener('loadedmetadata', () => {
+      const tex = this.aSRGB(new THREE.VideoTexture(v));
+      tex.minFilter = THREE.LinearFilter;
+      this.material.map = tex;
+      this.material.needsUpdate = true;
+      this.aplicarProporcion(v.videoWidth, v.videoHeight);
+    });
+    v.addEventListener('error', () => console.warn('[capa] no se pudo cargar el video', this.data.src));
+  },
+
+  alEncontrar(){ if (this.video) this.video.play().catch(() => {}); },
+  alPerder(){    if (this.video) this.video.pause(); },
+
+  tick(t){
+    if (!this.ctxGif) return;
+    if (t - this.ultimoCuadro < 45) return;   // ~22 fps alcanza para un GIF
+    this.ultimoCuadro = t;
+    try {
+      this.ctxGif.clearRect(0, 0, this.ctxGif.canvas.width, this.ctxGif.canvas.height);
+      this.ctxGif.drawImage(this.imgGif, 0, 0);
+      this.texGif.needsUpdate = true;
+    } catch (e) { /* imagen aún no decodificada */ }
+  },
+
+  remove(){
+    if (this.video){ this.video.pause(); this.video.remove(); }
+    this.el.removeObject3D('mesh');
+  }
+});
+
+/* ═══════════ armado de la escena ═══════════ */
+function construirEscena(){
+  const escena = document.createElement('a-scene');
+  escena.setAttribute('mindar-image', {
+    imageTargetSrc: urlMind,
+    autoStart: false,
+    uiLoading: 'no', uiScanning: 'no', uiError: 'no',
+    filterMinCF: 0.0001,   // menos temblor, un poco más de latencia
+    filterBeta: 0.001,
+    missTolerance: 8,
+    warmupTolerance: 3
+  });
+  escena.setAttribute('color-space', 'sRGB');
+  escena.setAttribute('renderer', 'colorManagement: true; alpha: true; antialias: true');
+  escena.setAttribute('vr-mode-ui', 'enabled: false');
+  escena.setAttribute('device-orientation-permission-ui', 'enabled: false');
+  escena.setAttribute('embedded', '');
+
+  const camara = document.createElement('a-camera');
+  camara.setAttribute('position', '0 0 0');
+  camara.setAttribute('look-controls', 'enabled: false');
+  escena.appendChild(camara);
+
+  const objetivo = document.createElement('a-entity');
+  objetivo.setAttribute('mindar-image-target', 'targetIndex: 0');
+
+  experiencia.capas.forEach((capa, i) => {
+    if (capa.visible === false) return;
+    const e = document.createElement('a-entity');
+    e.setAttribute('position', `${capa.x || 0} ${capa.y || 0} ${0.001 * (i + 1)}`);
+    e.setAttribute('rotation', `0 0 ${capa.rotacion || 0}`);
+    e.setAttribute('capa-media', {
+      tipo: capa.tipo || 'imagen',
+      src: capa.src,
+      ancho: capa.ancho != null ? capa.ancho : 0.5,
+      opacidad: capa.opacidad != null ? capa.opacidad : 1,
+      orden: i,
+      bucle: capa.bucle !== false,
+      silencio: capa.silenciado !== false
+    });
+    objetivo.appendChild(e);
+  });
+
+  objetivo.addEventListener('targetFound', () => {
+    $('#aviso').classList.add('oculto');
+    $('#reticula').classList.add('oculta');
+  });
+  objetivo.addEventListener('targetLost', () => {
+    $('#aviso').classList.remove('oculto');
+    $('#reticula').classList.remove('oculta');
+  });
+
+  escena.appendChild(objetivo);
+  document.body.appendChild(escena);
+  return escena;
+}
+
+/* ═══════════ permiso de cámara e inicio ═══════════ */
+/* La escena se arma apenas carga la experiencia, con autoStart en falso: así
+   las capas y sus <video> ya existen cuando el usuario toca el botón, y ese
+   mismo toque sirve para desbloquear la reproducción en iOS. La cámara recién
+   se abre en start(). */
+async function prepararEscena(){
+  escenaEl = construirEscena();
+  await new Promise(res => {
+    if (escenaEl.hasLoaded) res();
+    else escenaEl.addEventListener('loaded', res, { once: true });
+  });
+}
+
+async function iniciarAR(){
+  const boton = $('#btn-activar');
+  boton.disabled = true;
+
+  // Desbloqueo de reproducción: tiene que pasar dentro del gesto del usuario.
+  videosCapa.forEach(v => {
+    v.play().then(() => { v.pause(); v.currentTime = 0; }).catch(() => {});
+  });
+
+  pantalla('p-cargando');
+  fijarTitulo($('#txt-cargando'), 'Pidiendo cámara');
+  $('#txt-progreso').textContent = 'Aceptá el permiso en el aviso del navegador';
+
+  let prueba;
+  try {
+    prueba = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' } }, audio: false
+    });
+  } catch (e){
+    boton.disabled = false;
+    manejarErrorCamara(e);
+    return;
+  }
+  prueba.getTracks().forEach(t => t.stop());   // MindAR abre su propio flujo
+
+  fijarTitulo($('#txt-cargando'), 'Iniciando seguimiento');
+  $('#txt-progreso').textContent = 'Un momento';
+
+  try {
+    await escenaEl.systems['mindar-image-system'].start();
+  } catch (e){
+    console.error(e);
+    boton.disabled = false;
+    mostrarError('No se pudo iniciar el seguimiento',
+      'La cámara arrancó pero el reconocimiento del marcador falló.',
+      ['Recargá la página.',
+       'Verificá que haya conexión: las librerías de AR se descargan al abrir.',
+       'Probá en Safari (iOS) o Chrome (Android) actualizados.']);
+    return;
+  }
+
+  pantalla('');
+  $('#ar-ui').classList.add('activa');
+}
+
+function manejarErrorCamara(e){
+  const nombre = e && e.name ? e.name : '';
+  if (nombre === 'NotAllowedError' || nombre === 'SecurityError'){
+    const pasos = esIOS
+      ? ['Abrí Ajustes → Safari → Cámara y elegí "Preguntar" o "Permitir".',
+         'También podés tocar "aA" en la barra de direcciones → Ajustes del sitio web → Cámara.',
+         'Volvé a esta página y tocá Reintentar.']
+      : ['Tocá el candado junto a la dirección → Permisos → Cámara → Permitir.',
+         'Si no aparece, revisá Ajustes de Chrome → Configuración de sitios → Cámara.',
+         'Volvé a esta página y tocá Reintentar.'];
+    if (esNavegadorIncrustado) pasos.unshift('Abrí este enlace en Safari o Chrome, no dentro de otra app.');
+    mostrarError('Permiso denegado',
+      'Sin acceso a la cámara no se puede mostrar la experiencia. El permiso se puede volver a habilitar.', pasos);
+  } else if (nombre === 'NotFoundError' || nombre === 'OverconstrainedError'){
+    mostrarError('No se encontró una cámara',
+      'El dispositivo no reporta ninguna cámara trasera disponible.',
+      ['Cerrá otras apps que puedan estar usando la cámara.',
+       'Si estás en una computadora, conectá una webcam.']);
+  } else if (nombre === 'NotReadableError'){
+    mostrarError('La cámara está ocupada',
+      'Otra aplicación está usando la cámara en este momento.',
+      ['Cerrá la app de cámara u otras pestañas que la estén usando.', 'Tocá Reintentar.']);
+  } else {
+    mostrarError('No se pudo abrir la cámara', (e && e.message) || 'Error desconocido.',
+      ['Recargá la página y probá de nuevo.']);
+  }
+}
+
+/* ═══════════ arranque ═══════════ */
+(async function(){
+  if (!revisarEntorno()) return;
+
+  try {
+    experiencia = await cargarExperiencia();
+  } catch (e){
+    mostrarError('No se encontró la experiencia',
+      e.message || 'El visor no pudo leer los datos de la experiencia.',
+      ['Verificá que el archivo experiencia.json esté publicado junto a visor.html.',
+       'Si escaneaste un QR viejo, generá uno nuevo desde el editor.']);
+    return;
+  }
+
+  const t = experiencia.titulo || 'Experiencia AR';
+  document.title = t;
+  fijarTitulo($('#exp-titulo'), t);
+  $('#chip-titulo').textContent = t.slice(0, 28);
+  $('#exp-desc').textContent = experiencia.descripcion || 'Apuntá la cámara al marcador para ver el contenido.';
+
+  const previa = experiencia.marcador && experiencia.marcador.vistaPrevia;
+  if (previa){
+    $('#img-previa').src = previa;
+    $('#lupa-img').src = previa;
+    $('#bloque-previa').hidden = false;
+  } else {
+    $('#btn-ver-marcador').style.display = 'none';
+  }
+
+  if (!experiencia.marcador || !experiencia.marcador.mind){
+    mostrarError('Falta el marcador compilado',
+      'La experiencia no incluye los datos de seguimiento del marcador.',
+      ['Volvé al editor y usá "Compilar marcador" antes de publicar.']);
+    return;
+  }
+  urlMind = base64ABlobUrl(experiencia.marcador.mind, 'application/octet-stream');
+
+  $('#btn-activar').addEventListener('click', iniciarAR);
+  $('#btn-reintentar').addEventListener('click', () => location.reload());
+  prepararEscena().catch(e => {
+    console.error(e);
+    mostrarError('No se pudo preparar la escena',
+      'Falló el armado de las capas antes de abrir la cámara.',
+      ['Revisá la conexión: A-Frame y MindAR se descargan al abrir la página.',
+       'Recargá e intentá de nuevo.']);
+  });
+  $('#btn-ver-marcador').addEventListener('click', () => $('#lupa').classList.add('activa'));
+  $('#img-previa').addEventListener('click', () => $('#lupa').classList.add('activa'));
+  $('#btn-cerrar-lupa').addEventListener('click', () => $('#lupa').classList.remove('activa'));
+})();
+</script>
+</body>
+</html>
