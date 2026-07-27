@@ -1,754 +1,911 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="theme-color" content="#f5f5f7">
-  <title>LED AR Experience Creator</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #f5f5f7;
-      color: #1d1d1f;
-      line-height: 1.5;
-      padding: 20px;
-      padding-top: max(20px, env(safe-area-inset-top));
-      padding-bottom: max(20px, env(safe-area-inset-bottom));
-    }
-    .container { max-width: 720px; margin: 0 auto; }
-    h1 { font-size: clamp(22px, 5vw, 28px); font-weight: 600; margin-bottom: 6px; }
-    .subtitle { color: #6e6e73; margin-bottom: 20px; font-size: 15px; }
-    
-    .card {
-      background: white;
-      border-radius: 16px;
-      padding: 20px;
-      margin-bottom: 16px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-    }
-    .card h2 {
-      font-size: 17px;
-      font-weight: 600;
-      margin-bottom: 14px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    
-    .form-group { margin-bottom: 16px; }
-    .form-group label {
-      display: block;
-      font-size: 14px;
-      font-weight: 500;
-      color: #3a3a3c;
-      margin-bottom: 6px;
-    }
-    .form-group input[type="text"] {
-      width: 100%;
-      padding: 12px 14px;
-      border: 1px solid #d2d2d7;
-      border-radius: 10px;
-      font-size: 16px;
-      -webkit-appearance: none;
-      transition: border-color 0.2s;
-    }
-    .form-group input[type="text"]:focus {
-      outline: none;
-      border-color: #0071e3;
-    }
-    
-    .upload-zone {
-      border: 2px dashed #d2d2d7;
-      border-radius: 12px;
-      padding: 28px 16px;
-      text-align: center;
-      cursor: pointer;
-      transition: all 0.2s;
-      position: relative;
-      overflow: hidden;
-    }
-    .upload-zone:hover, .upload-zone:active {
-      border-color: #0071e3;
-      background: #f0f7ff;
-    }
-    .upload-zone.has-file {
-      border-style: solid;
-      border-color: #34c759;
-      background: #f0fff4;
-    }
-    .upload-zone input[type="file"] {
-      position: absolute;
-      inset: 0;
-      opacity: 0;
-      cursor: pointer;
-      width: 100%;
-      height: 100%;
-      font-size: 100px; /* fuerza el área táctil completa en iOS */
-    }
-    .upload-icon {
-      width: 36px;
-      height: 36px;
-      margin: 0 auto 8px;
-      color: #86868b;
-    }
-    .upload-text { font-size: 15px; color: #1d1d1f; }
-    .upload-hint { font-size: 12px; color: #86868b; margin-top: 4px; line-height: 1.4; }
-    .file-preview {
-      margin-top: 10px;
-      max-width: 180px;
-      max-height: 140px;
-      border-radius: 8px;
-      display: none;
-      margin-left: auto;
-      margin-right: auto;
-    }
-    .file-preview.active { display: block; }
-    
-    .btn-primary {
-      width: 100%;
-      padding: 14px;
-      background: #0071e3;
-      color: white;
-      border: none;
-      border-radius: 12px;
-      font-size: 16px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 0.2s;
-      -webkit-tap-highlight-color: transparent;
-      min-height: 48px;
-    }
-    .btn-primary:active { background: #005bb5; }
-    .btn-primary:disabled { background: #d2d2d7; cursor: not-allowed; }
-    
-    .experiences-grid { display: grid; gap: 10px; }
-    .exp-card {
-      background: white;
-      border-radius: 14px;
-      padding: 14px;
-      display: flex;
-      gap: 12px;
-      align-items: flex-start;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-    }
-    .exp-thumb {
-      width: 52px;
-      height: 52px;
-      border-radius: 10px;
-      background: #f5f5f7;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-      overflow: hidden;
-    }
-    .exp-thumb img { width: 100%; height: 100%; object-fit: cover; }
-    .exp-info { flex: 1; min-width: 0; }
-    .exp-name {
-      font-size: 15px;
-      font-weight: 600;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .exp-meta {
-      font-size: 12px;
-      color: #6e6e73;
-      margin-top: 2px;
-    }
-    .badge {
-      display: inline-block;
-      padding: 2px 7px;
-      border-radius: 6px;
-      font-size: 11px;
-      font-weight: 600;
-      margin-left: 3px;
-    }
-    .badge-png { background: #e8f5e9; color: #2e7d32; }
-    .badge-gif { background: #fff3e0; color: #ef6c00; }
-    .exp-qr { flex-shrink: 0; }
-    .exp-qr canvas { border-radius: 6px; display: block; }
-    
-    .actions {
-      display: flex;
-      gap: 6px;
-      margin-top: 8px;
-      flex-wrap: wrap;
-    }
-    .btn-small {
-      padding: 6px 10px;
-      border-radius: 8px;
-      border: 1px solid #d2d2d7;
-      background: white;
-      font-size: 12px;
-      cursor: pointer;
-      transition: all 0.15s;
-      -webkit-tap-highlight-color: transparent;
-      min-height: 32px;
-    }
-    .btn-small:active { background: #f5f5f7; transform: scale(0.97); }
-    .btn-danger { color: #ff3b30; border-color: #ff3b30; }
-    .btn-download {
-      background: #34c759;
-      color: white;
-      border-color: #34c759;
-    }
-    .btn-download:active { background: #30b350; }
-    
-    .empty-state {
-      text-align: center;
-      padding: 40px 20px;
-      color: #86868b;
-    }
-    .empty-state svg { margin-bottom: 10px; opacity: 0.4; }
-    
-    .modal-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.5);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 1000;
-      padding: 16px;
-      -webkit-tap-highlight-color: transparent;
-    }
-    .modal-overlay.active { display: flex; }
-    .modal {
-      background: white;
-      border-radius: 20px;
-      padding: 24px;
-      max-width: 360px;
-      width: 100%;
-      text-align: center;
-    }
-    .modal h3 { font-size: 18px; font-weight: 600; margin-bottom: 6px; }
-    .modal p { color: #6e6e73; font-size: 14px; margin-bottom: 16px; }
-    .qr-display { margin: 12px auto; display: inline-block; }
-    .qr-display canvas, .qr-display img { max-width: 100%; height: auto; }
-    .qr-url {
-      font-size: 11px;
-      color: #86868b;
-      word-break: break-all;
-      margin-top: 6px;
-      font-family: ui-monospace, SFMono-Regular, monospace;
-      background: #f5f5f7;
-      padding: 8px;
-      border-radius: 8px;
-      line-height: 1.4;
-    }
-    
-    .tools-bar {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 16px;
-      flex-wrap: wrap;
-    }
-    .btn-tool {
-      padding: 10px 14px;
-      border-radius: 10px;
-      border: 1px solid #d2d2d7;
-      background: white;
-      font-size: 14px;
-      cursor: pointer;
-      transition: all 0.15s;
-      -webkit-tap-highlight-color: transparent;
-      min-height: 40px;
-    }
-    .btn-tool:active { background: #f5f5f7; transform: scale(0.97); }
-    
-    .note {
-      background: #fff8e1;
-      border-left: 4px solid #ffc107;
-      padding: 12px 14px;
-      border-radius: 0 10px 10px 0;
-      font-size: 13px;
-      color: #5d4037;
-      margin-bottom: 16px;
-      line-height: 1.5;
-    }
-    .note strong { display: block; margin-bottom: 2px; }
-    
-    .toast {
-      position: fixed;
-      bottom: max(20px, env(safe-area-inset-bottom));
-      left: 50%;
-      transform: translateX(-50%) translateY(100px);
-      background: #333;
-      color: #fff;
-      padding: 12px 20px;
-      border-radius: 12px;
-      font-size: 14px;
-      z-index: 10000;
-      opacity: 0;
-      transition: all 0.3s;
-      white-space: nowrap;
-      pointer-events: none;
-    }
-    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-    
-    @media (max-width: 400px) {
-      body { padding: 12px; }
-      .exp-card { padding: 12px; }
-      .modal { padding: 20px; }
-    }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#101215">
+<title>Editor AR Web — componer y publicar</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image.prod.js"></script>
+
+<style>
+:root{
+  --grafito:#101215;
+  --panel:#171A1F;
+  --panel-alto:#1E222890;
+  --linea:#2A2F36;
+  --linea-viva:#3A414A;
+  --papel:#F5F3EE;
+  --texto:#E7E5E0;
+  --tenue:#949BA4;
+  --rojo:#E8433A;
+  --cian:#21C3D6;
+  --ok:#5BD08A;
+  --r:12px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--grafito);color:var(--texto);
+  font-family:'Archivo',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+body{min-height:100dvh}
+.mono{font-family:'IBM Plex Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums}
+button,input,select,textarea{font-family:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--cian);outline-offset:2px}
+
+/* ───────── encabezado ───────── */
+header{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:16px;
+  padding:14px 20px;background:rgba(16,18,21,.92);backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--linea)}
+.marca{font-weight:800;font-size:19px;letter-spacing:-.03em;position:relative;white-space:nowrap}
+/* firma: desfase rojo/cian del wordmark — el mismo truco del 3D anaglífico */
+.marca::before,.marca::after{content:attr(data-t);position:absolute;inset:0;
+  mix-blend-mode:screen;opacity:.6;pointer-events:none}
+.marca::before{color:var(--rojo);transform:translateX(-2px)}
+.marca::after{color:var(--cian);transform:translateX(2px)}
+.eyebrow{font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--tenue)}
+header .der{margin-left:auto;display:flex;gap:8px;align-items:center}
+
+/* ───────── estructura ───────── */
+main{display:grid;gap:16px;padding:16px;max-width:1680px;margin:0 auto;
+  grid-template-columns:minmax(0,320px) minmax(0,1fr) minmax(0,340px)}
+@media (max-width:1180px){ main{grid-template-columns:minmax(0,1fr)} }
+
+section.bloque{background:var(--panel);border:1px solid var(--linea);border-radius:var(--r);overflow:hidden}
+.cab{display:flex;align-items:center;gap:10px;padding:13px 15px;border-bottom:1px solid var(--linea)}
+.cab h2{margin:0;font-size:11px;letter-spacing:.19em;text-transform:uppercase;color:var(--tenue);font-weight:600}
+.cab .idx{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--linea-viva)}
+.cab .der{margin-left:auto;display:flex;gap:6px}
+.cuerpo{padding:15px;display:grid;gap:13px}
+
+label.campo{display:grid;gap:6px}
+label.campo>span{font-size:11.5px;letter-spacing:.06em;color:var(--tenue)}
+input[type=text],input[type=url],textarea,select{
+  background:#0C0E11;border:1px solid var(--linea);border-radius:9px;padding:10px 12px;
+  font-size:14px;width:100%}
+textarea{resize:vertical;min-height:64px;line-height:1.45}
+input::placeholder,textarea::placeholder{color:#5A616A}
+.pista{font-size:11.5px;color:var(--tenue);line-height:1.5}
+
+.btn{background:#22262D;border:1px solid var(--linea-viva);border-radius:9px;
+  padding:9px 13px;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap}
+.btn:hover{background:#2A2F37}
+.btn.claro{background:var(--papel);color:#0C0D0F;border-color:var(--papel);font-weight:700}
+.btn.claro:hover{background:#fff}
+.btn.fantasma{background:transparent}
+.btn.peligro:hover{border-color:var(--rojo);color:var(--rojo)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.ancho{width:100%;justify-content:center;text-align:center;padding:13px}
+.fila{display:flex;gap:8px;flex-wrap:wrap}
+
+/* ───────── capas ───────── */
+.lista{display:grid;gap:8px;max-height:min(46vh,460px);overflow-y:auto}
+.capa-item{display:grid;grid-template-columns:26px 46px minmax(0,1fr) auto;gap:10px;align-items:center;
+  background:#0F1216;border:1px solid var(--linea);border-radius:10px;padding:8px;cursor:pointer}
+.capa-item.sel{border-color:var(--papel);
+  box-shadow:-3px 0 0 -1px rgba(232,67,58,.65), 3px 0 0 -1px rgba(33,195,214,.65)}
+.capa-item .num{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--tenue);text-align:center}
+.capa-item .mini{width:46px;height:38px;border-radius:6px;object-fit:cover;background:#000;display:block}
+.capa-item .datos{min-width:0}
+.capa-item .nom{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.capa-item .tipo{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--tenue)}
+.capa-item .ctrl{display:flex;gap:3px}
+.icono{background:transparent;border:1px solid transparent;border-radius:7px;width:28px;height:28px;
+  font-size:13px;line-height:1;cursor:pointer;color:var(--tenue)}
+.icono:hover{border-color:var(--linea-viva);color:var(--texto)}
+.icono.apagado{opacity:.35}
+.vacio{border:1px dashed var(--linea-viva);border-radius:10px;padding:22px 14px;text-align:center;
+  font-size:13px;color:var(--tenue);line-height:1.5}
+
+/* ───────── escenario ───────── */
+.escena-caja{padding:15px;display:grid;gap:12px;justify-items:center}
+.escenario{position:relative;width:100%;max-width:520px;background:#0A0B0D;border-radius:10px;
+  overflow:hidden;touch-action:none;
+  background-image:linear-gradient(rgba(255,255,255,.045) 1px,transparent 1px),
+                   linear-gradient(90deg,rgba(255,255,255,.045) 1px,transparent 1px);
+  background-size:24px 24px}
+.escenario .fondo{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:.62}
+.escenario .sin-marcador{position:absolute;inset:0;display:grid;place-items:center;
+  text-align:center;font-size:12.5px;color:var(--tenue);padding:24px;line-height:1.5}
+.capa-vista{position:absolute;transform-origin:center;cursor:grab;user-select:none}
+.capa-vista.arrastrando{cursor:grabbing}
+.capa-vista img,.capa-vista video{display:block;width:100%;height:auto;pointer-events:none}
+.capa-vista.sel{box-shadow:0 0 0 1.5px var(--papel),
+  -3px 0 0 1.5px rgba(232,67,58,.7), 3px 0 0 1.5px rgba(33,195,214,.7)}
+.regla{display:flex;gap:14px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--tenue);
+  letter-spacing:.08em;flex-wrap:wrap;justify-content:center}
+
+/* ───────── propiedades ───────── */
+.deslizador{display:grid;gap:5px}
+.deslizador .top{display:flex;justify-content:space-between;align-items:baseline;font-size:11.5px;color:var(--tenue)}
+.deslizador .val{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--texto)}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:22px;background:transparent}
+input[type=range]::-webkit-slider-runnable-track{height:2px;background:var(--linea-viva);border-radius:2px}
+input[type=range]::-moz-range-track{height:2px;background:var(--linea-viva);border-radius:2px}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;border-radius:50%;
+  background:var(--papel);margin-top:-6.5px;border:0}
+input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;background:var(--papel);border:0}
+.check{display:flex;gap:9px;align-items:center;font-size:13px;color:var(--texto)}
+.check input{accent-color:var(--cian);width:16px;height:16px}
+
+/* ───────── publicar ───────── */
+.opcion{display:flex;gap:10px;align-items:flex-start;background:#0F1216;border:1px solid var(--linea);
+  border-radius:10px;padding:11px 12px;cursor:pointer}
+.opcion.sel{border-color:var(--linea-viva);background:#141820}
+.opcion input{margin-top:2px;accent-color:var(--cian)}
+.opcion .t{font-size:13.5px}
+.opcion .d{font-size:11.5px;color:var(--tenue);line-height:1.45;margin-top:3px}
+.qr-caja{display:grid;gap:12px;justify-items:center;padding:4px 0}
+.qr-caja img{width:100%;max-width:250px;background:#fff;border-radius:8px}
+.progreso{height:2px;background:var(--linea);border-radius:2px;overflow:hidden}
+.progreso i{display:block;height:100%;width:0;background:var(--cian);transition:width .2s}
+.salidas{display:grid;gap:7px}
+.salida{display:flex;gap:10px;align-items:center;background:#0F1216;border:1px solid var(--linea);
+  border-radius:9px;padding:9px 11px;font-size:12.5px}
+.salida .n{font-family:'IBM Plex Mono',monospace;color:var(--texto);flex:1;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.salida .p{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--tenue)}
+.aviso-caja{border-left:2px solid var(--rojo);background:#1A1416;padding:10px 12px;border-radius:0 8px 8px 0;
+  font-size:12.5px;line-height:1.5;color:#F0C9C6}
+.aviso-caja.ok{border-color:var(--ok);background:#111A15;color:#C6EBD5}
+
+#brindis{position:fixed;left:50%;bottom:26px;transform:translate(-50%,20px);z-index:60;
+  background:var(--papel);color:#0C0D0F;border-radius:999px;padding:11px 20px;font-size:13.5px;
+  font-weight:600;opacity:0;pointer-events:none;transition:opacity .22s,transform .22s}
+#brindis.ver{opacity:1;transform:translate(-50%,0)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
 </head>
 <body>
-  <div class="container">
-    <h1>LED AR Experience Creator</h1>
-    <p class="subtitle">Crea experiencias de realidad aumentada vinculadas a códigos QR</p>
-    
-    <div class="note">
-      <strong>ℹ️ Importante</strong>
-      Los datos se guardan en el navegador (LocalStorage). Para compartir entre dispositivos, usa Exportar/Importar.
-    </div>
-    
-    <div class="card">
-      <h2>
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M12 5v14M5 12h14"/>
-        </svg>
-        Nueva experiencia AR
-      </h2>
-      
-      <div class="form-group">
-        <label>Nombre del proyecto</label>
-        <input type="text" id="projectName" placeholder="Ej: Cartel promocional verano 2026">
-      </div>
-      
-      <div class="form-group">
-        <label>Contenido AR (PNG o GIF)</label>
-        <div class="upload-zone" id="contentZone">
-          <!-- accept image/* para que móvil muestre todas las fotos, no solo screenshots -->
-          <input type="file" id="contentFile" accept="image/*">
-          <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-            <polyline points="17 8 12 3 7 8"/>
-            <line x1="12" y1="3" x2="12" y2="15"/>
-          </svg>
-          <div class="upload-text" id="contentText">Toca para elegir foto o imagen</div>
-          <div class="upload-hint">Se aceptan PNG y GIF · Máx. recomendado 2MB</div>
-          <img class="file-preview" id="contentPreview" alt="">
-        </div>
-      </div>
-      
-      <div class="form-group">
-        <label>Imagen target personalizada (opcional)</label>
-        <div class="upload-zone" id="targetZone">
-          <input type="file" id="targetFile" accept="image/*">
-          <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <rect x="3" y="3" width="18" height="18" rx="2"/>
-            <circle cx="8.5" cy="8.5" r="1.5"/>
-            <path d="M21 15l-5-5L5 21"/>
-          </svg>
-          <div class="upload-text" id="targetText">Toca para elegir imagen target</div>
-          <div class="upload-hint">
-            Si no subes nada, se usará el <strong>marcador Hiro</strong> por defecto.
-          </div>
-          <img class="file-preview" id="targetPreview" alt="">
-        </div>
-      </div>
-      
-      <button class="btn-primary" id="saveBtn" onclick="saveExperience()">Guardar y generar QR</button>
-    </div>
-    
-    <div class="tools-bar">
-      <button class="btn-tool" onclick="exportData()">📤 Exportar datos</button>
-      <button class="btn-tool" onclick="document.getElementById('importFile').click()">📥 Importar datos</button>
-      <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)">
-      <button class="btn-tool" onclick="clearAll()" style="color:#ff3b30">🗑️ Limpiar todo</button>
-    </div>
-    
-    <div class="card">
-      <h2>
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
-          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
-        </svg>
-        Experiencias creadas
-      </h2>
-      <div id="experiencesList">
-        <div class="empty-state">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <rect x="3" y="3" width="18" height="18" rx="2"/>
-            <circle cx="8.5" cy="8.5" r="1.5"/>
-            <path d="M21 15l-5-5L5 21"/>
-          </svg>
-          <p>No hay experiencias creadas aún.<br>Sube tu primer contenido AR arriba.</p>
-        </div>
-      </div>
-    </div>
-  </div>
-  
-  <div class="modal-overlay" id="qrModal" onclick="if(event.target===this)closeModal()">
-    <div class="modal">
-      <h3>✅ Experiencia creada</h3>
-      <p>Escanea este QR con tu móvil para abrir el visor AR</p>
-      <div class="qr-display" id="qrDisplay"></div>
-      <div class="qr-url" id="qrUrl"></div>
-      <div class="actions" style="justify-content:center; margin-top:16px;">
-        <button class="btn-small" onclick="closeModal()">Cerrar</button>
-        <button class="btn-small btn-download" onclick="downloadQR()">⬇️ Descargar QR</button>
-        <button class="btn-small" onclick="openViewer()" style="background:#0071e3; color:white; border-color:#0071e3;">Abrir visor</button>
-      </div>
-    </div>
-  </div>
-  
-  <div class="toast" id="toast"></div>
 
-  <script>
-    const STORAGE_KEY = 'ar-web-experiences';
-    
-    function generateId() {
-      return 'ar-' + Math.random().toString(36).substring(2, 9) + Date.now().toString(36).substring(2, 5);
-    }
-    function getExperiences() {
-      try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
-      catch { return []; }
-    }
-    function saveExperiences(list) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
-    }
-    function getBaseUrl() {
-      const loc = window.location;
-      const path = loc.pathname.replace(/[^/]*$/, '');
-      return loc.origin + path + 'viewer.html';
-    }
-    function showToast(msg) {
-      const t = document.getElementById('toast');
-      t.textContent = msg;
-      t.classList.add('show');
-      setTimeout(() => t.classList.remove('show'), 2500);
-    }
-    
-    // ===== FILE UPLOAD =====
-    let currentContent = null;
-    let currentTarget = null;
-    
-    function setupFileInput(inputId, zoneId, previewId, textId, storeRef) {
-      const input = document.getElementById(inputId);
-      const zone = document.getElementById(zoneId);
-      const preview = document.getElementById(previewId);
-      const text = document.getElementById(textId);
-      
-      input.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        
-        // Validar tipo manualmente ya que accept="image/*" es permisivo
-        if (!file.type.startsWith('image/')) {
-          showToast('El archivo debe ser una imagen');
-          input.value = '';
-          return;
-        }
-        
-        // Si es contenido, validar que sea PNG o GIF
-        if (storeRef === 'content' && !/image\/(png|gif)/i.test(file.type)) {
-          showToast('El contenido AR debe ser PNG o GIF');
-          input.value = '';
-          return;
-        }
-        
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-          const data = ev.target.result;
-          if (storeRef === 'content') {
-            currentContent = { name: file.name, type: file.type, data };
-          } else {
-            currentTarget = { name: file.name, type: file.type, data };
-          }
-          preview.src = data;
-          preview.classList.add('active');
-          zone.classList.add('has-file');
-          text.innerHTML = `✓ <strong>${file.name}</strong> · ${(file.size/1024).toFixed(1)} KB`;
-        };
-        reader.readAsDataURL(file);
-      });
-    }
-    
-    setupFileInput('contentFile', 'contentZone', 'contentPreview', 'contentText', 'content');
-    setupFileInput('targetFile', 'targetZone', 'targetPreview', 'targetText', 'target');
-    
-    // ===== SAVE =====
-    let lastCreatedId = null;
-    let lastCreatedName = '';
-    
-    function saveExperience() {
-      const name = document.getElementById('projectName').value.trim();
-      if (!name) { showToast('Ingresa un nombre para el proyecto'); return; }
-      if (!currentContent) { showToast('Sube un contenido PNG o GIF'); return; }
-      
-      const exp = {
-        id: generateId(),
-        name,
-        content: currentContent,
-        target: currentTarget,
-        createdAt: Date.now()
-      };
-      
-      const list = getExperiences();
-      list.unshift(exp);
-      saveExperiences(list);
-      
-      // Reset form
-      document.getElementById('projectName').value = '';
-      currentContent = null; currentTarget = null;
-      ['content','target'].forEach(t => {
-        document.getElementById(t+'Preview').classList.remove('active');
-        document.getElementById(t+'Zone').classList.remove('has-file');
-        document.getElementById(t+'Text').innerHTML = t === 'content' 
-          ? 'Toca para elegir foto o imagen'
-          : 'Toca para elegir imagen target';
-        document.getElementById(t+'File').value = '';
-      });
-      
-      lastCreatedId = exp.id;
-      lastCreatedName = exp.name;
-      renderList();
-      showQR(exp);
-      showToast('Experiencia guardada');
-    }
-    
-    // ===== QR MODAL =====
-    function showQR(exp) {
-      const modal = document.getElementById('qrModal');
-      const display = document.getElementById('qrDisplay');
-      const urlEl = document.getElementById('qrUrl');
-      
-      display.innerHTML = '';
-      const viewerUrl = getBaseUrl() + '?id=' + exp.id;
-      lastCreatedName = exp.name;
-      urlEl.textContent = viewerUrl;
-      
-      new QRCode(display, {
-        text: viewerUrl,
-        width: 200,
-        height: 200,
-        colorDark: '#000000',
-        colorLight: '#ffffff',
-        correctLevel: QRCode.CorrectLevel.M
-      });
-      
-      modal.classList.add('active');
-    }
-    
-    function closeModal() {
-      document.getElementById('qrModal').classList.remove('active');
-    }
-    
-    function openViewer() {
-      if (lastCreatedId) {
-        window.open(getBaseUrl() + '?id=' + lastCreatedId, '_blank');
+<header>
+  <div>
+    <div class="eyebrow">Realidad aumentada web</div>
+    <div class="marca" data-t="Superponer">Superponer</div>
+  </div>
+  <div class="der">
+    <button class="btn fantasma" id="btn-abrir">Abrir proyecto</button>
+    <button class="btn fantasma" id="btn-nuevo">Nuevo</button>
+  </div>
+</header>
+
+<main>
+
+  <!-- ══════ columna izquierda ══════ -->
+  <div style="display:grid;gap:16px;align-content:start">
+
+    <section class="bloque">
+      <div class="cab"><span class="idx">A</span><h2>Experiencia</h2></div>
+      <div class="cuerpo">
+        <label class="campo"><span>Título</span>
+          <input type="text" id="in-titulo" placeholder="Ej.: Anatomía de un personaje" maxlength="60"></label>
+        <label class="campo"><span>Instrucción para quien la ve</span>
+          <textarea id="in-desc" maxlength="240" placeholder="Apuntá la cámara al marcador de la ficha"></textarea></label>
+      </div>
+    </section>
+
+    <section class="bloque">
+      <div class="cab"><span class="idx">B</span><h2>Marcador</h2></div>
+      <div class="cuerpo">
+        <label class="opcion sel" id="op-qr">
+          <input type="radio" name="modo-marcador" value="qr" checked>
+          <span><span class="t">Usar el QR como marcador</span>
+          <span class="d">Genera una ficha imprimible con el QR adentro. El mismo papel abre la experiencia y la ancla.</span></span>
+        </label>
+        <label class="opcion" id="op-img">
+          <input type="radio" name="modo-marcador" value="imagen">
+          <span><span class="t">Usar una imagen propia</span>
+          <span class="d">Una foto, un afiche o una ilustración. Funciona mejor con mucho detalle y poco patrón repetido.</span></span>
+        </label>
+        <div id="zona-marcador" hidden>
+          <button class="btn ancho" id="btn-marcador">Elegir imagen del marcador</button>
+          <p class="pista" style="margin:9px 0 0">Recomendado: al menos 800 px de lado, contraste alto, sin grandes zonas lisas.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="bloque">
+      <div class="cab"><span class="idx">C</span><h2>Capas</h2>
+        <div class="der">
+          <button class="btn" id="btn-archivo">Archivo</button>
+          <button class="btn" id="btn-url">URL</button>
+        </div>
+      </div>
+      <div class="cuerpo">
+        <div class="lista" id="lista-capas"></div>
+        <div class="vacio" id="capas-vacias">Todavía no hay capas.<br>Sumá imágenes, GIFs o videos cortos.</div>
+        <p class="pista">El número indica el orden de dibujo: <span class="mono">01</span> es la capa de más abajo.</p>
+      </div>
+    </section>
+  </div>
+
+  <!-- ══════ columna central ══════ -->
+  <div style="display:grid;gap:16px;align-content:start">
+    <section class="bloque">
+      <div class="cab"><span class="idx">D</span><h2>Composición sobre el marcador</h2>
+        <div class="der"><button class="btn fantasma" id="btn-centrar">Centrar capa</button></div>
+      </div>
+      <div class="escena-caja">
+        <div class="escenario" id="escenario">
+          <img class="fondo" id="fondo-marcador" alt="" hidden>
+          <div class="sin-marcador" id="sin-marcador">Elegí un marcador o generá el QR para ver la superficie de trabajo.</div>
+        </div>
+        <div class="regla">
+          <span>MARCADOR <b id="r-marcador" class="mono">—</b></span>
+          <span>CAPAS <b id="r-capas" class="mono">0</b></span>
+          <span>PESO <b id="r-peso" class="mono">0 KB</b></span>
+        </div>
+      </div>
+    </section>
+
+    <section class="bloque" id="bloque-props" hidden>
+      <div class="cab"><span class="idx">E</span><h2>Capa seleccionada</h2>
+        <div class="der"><button class="btn fantasma peligro" id="btn-borrar">Quitar</button></div>
+      </div>
+      <div class="cuerpo" style="grid-template-columns:repeat(auto-fit,minmax(210px,1fr))">
+        <div class="deslizador">
+          <div class="top"><span>Tamaño</span><span class="val" id="v-ancho">—</span></div>
+          <input type="range" id="s-ancho" min="0.05" max="2" step="0.01"></div>
+        <div class="deslizador">
+          <div class="top"><span>Rotación</span><span class="val" id="v-rot">—</span></div>
+          <input type="range" id="s-rot" min="-180" max="180" step="1"></div>
+        <div class="deslizador">
+          <div class="top"><span>Opacidad</span><span class="val" id="v-op">—</span></div>
+          <input type="range" id="s-op" min="0.05" max="1" step="0.01"></div>
+        <div class="deslizador">
+          <div class="top"><span>Posición X</span><span class="val" id="v-x">—</span></div>
+          <input type="range" id="s-x" min="-1.5" max="1.5" step="0.005"></div>
+        <div class="deslizador">
+          <div class="top"><span>Posición Y</span><span class="val" id="v-y">—</span></div>
+          <input type="range" id="s-y" min="-1.5" max="1.5" step="0.005"></div>
+        <div id="props-video" hidden style="display:grid;gap:10px;align-content:center">
+          <label class="check"><input type="checkbox" id="c-bucle"> Repetir en bucle</label>
+          <label class="check"><input type="checkbox" id="c-silencio"> Sin audio</label>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- ══════ columna derecha ══════ -->
+  <div style="display:grid;gap:16px;align-content:start">
+    <section class="bloque">
+      <div class="cab"><span class="idx">F</span><h2>Publicar</h2></div>
+      <div class="cuerpo">
+        <label class="campo"><span>Dirección donde vas a publicar</span>
+          <input type="url" id="in-base" placeholder="https://usuario.github.io/ar-clase/"></label>
+        <label class="campo"><span>Nombre del archivo de la experiencia</span>
+          <input type="text" id="in-archivo" value="experiencia.json"></label>
+        <p class="pista">El QR va a apuntar a <span class="mono" id="v-enlace">—</span></p>
+
+        <button class="btn claro ancho" id="btn-publicar">Compilar marcador y generar QR</button>
+        <div class="progreso" id="prog" hidden><i></i></div>
+        <div id="estado"></div>
+
+        <div class="qr-caja" id="qr-caja" hidden>
+          <img id="img-tarjeta" alt="Marcador con QR">
+        </div>
+
+        <div class="salidas" id="salidas" hidden></div>
+        <button class="btn ancho" id="btn-previa" hidden>Probar en este dispositivo</button>
+      </div>
+    </section>
+
+    <section class="bloque">
+      <div class="cab"><span class="idx">G</span><h2>Cómo se pone en línea</h2></div>
+      <div class="cuerpo">
+        <p class="pista" style="line-height:1.65">
+          1. Descargá los archivos y subilos a una carpeta servida por <b>HTTPS</b>, junto a <span class="mono">visor.html</span>.<br>
+          2. Si usás videos o imágenes pesadas, subilas aparte y agregalas acá con <b>URL</b> en vez de archivo: la experiencia queda liviana y carga más rápido en el celular.<br>
+          3. Imprimí <span class="mono">marcador.png</span> o mostralo en otra pantalla. Escanear el QR abre el visor; apuntar la cámara a la misma ficha muestra las capas.
+        </p>
+        <div class="aviso-caja">Sin HTTPS la cámara no arranca. Un archivo abierto con doble clic (file://) tampoco sirve para el visor.</div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<div id="brindis"></div>
+<input type="file" id="f-capa" accept="image/*,video/*" multiple hidden>
+<input type="file" id="f-marcador" accept="image/*" hidden>
+<input type="file" id="f-proyecto" accept="application/json,.json" hidden>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════
+   EDITOR — arma la experiencia, compila el objetivo de seguimiento
+   (MindAR) y produce los tres archivos que se publican:
+     experiencia.json · marcador.png · qr.png
+   ═══════════════════════════════════════════════════════════════════ */
+
+const $ = s => document.querySelector(s);
+const CLAVE = 'webar_proyecto';
+
+let proyecto = proyectoVacio();
+let seleccion = null;
+let salidas = {};          // { nombre: dataURL }
+
+function proyectoVacio(){
+  return {
+    version: 1,
+    titulo: '',
+    descripcion: '',
+    urlBase: '',
+    archivo: 'experiencia.json',
+    marcador: { modo:'qr', imagen:'', relacion:0.75, mind:'', vistaPrevia:'' },
+    capas: []
+  };
+}
+
+/* ───────── avisos ───────── */
+let temporizadorBrindis;
+function brindis(msg){
+  const b = $('#brindis'); b.textContent = msg; b.classList.add('ver');
+  clearTimeout(temporizadorBrindis);
+  temporizadorBrindis = setTimeout(() => b.classList.remove('ver'), 2600);
+}
+function estado(msg, tipo){
+  const c = $('#estado');
+  if (!msg){ c.innerHTML = ''; return; }
+  c.innerHTML = `<div class="aviso-caja ${tipo === 'ok' ? 'ok' : ''}"></div>`;
+  c.firstChild.textContent = msg;
+}
+
+/* ───────── archivos ───────── */
+const leerComoDataURL = f => new Promise((res, rej) => {
+  const r = new FileReader();
+  r.onload = () => res(r.result);
+  r.onerror = () => rej(new Error('No se pudo leer ' + f.name));
+  r.readAsDataURL(f);
+});
+const cargarImagen = src => new Promise((res, rej) => {
+  const i = new Image(); i.crossOrigin = 'anonymous';
+  i.onload = () => res(i);
+  i.onerror = () => rej(new Error('No se pudo cargar la imagen'));
+  i.src = src;
+});
+function descargar(nombre, dataURL){
+  const a = document.createElement('a');
+  a.href = dataURL; a.download = nombre;
+  document.body.appendChild(a); a.click(); a.remove();
+}
+function pesoDe(cadena){
+  const bytes = new Blob([cadena]).size;
+  return bytes > 1048576 ? (bytes/1048576).toFixed(1) + ' MB' : Math.round(bytes/1024) + ' KB';
+}
+
+/* ───────── tipo de medio ───────── */
+function tipoDesdeMime(mime, nombre){
+  if (mime.startsWith('video/')) return 'video';
+  if (mime === 'image/gif') return 'gif';
+  if (mime.startsWith('image/')) return 'imagen';
+  const ext = (nombre.split('.').pop() || '').toLowerCase();
+  if (['mp4','webm','mov','m4v'].includes(ext)) return 'video';
+  if (ext === 'gif') return 'gif';
+  return 'imagen';
+}
+const medirMedio = (tipo, src) => new Promise(res => {
+  if (tipo === 'video'){
+    const v = document.createElement('video');
+    v.onloadedmetadata = () => res(v.videoWidth / v.videoHeight || 1);
+    v.onerror = () => res(1);
+    v.src = src;
+  } else {
+    cargarImagen(src).then(i => res(i.naturalWidth / i.naturalHeight || 1)).catch(() => res(1));
+  }
+});
+
+/* ═══════════ capas ═══════════ */
+async function agregarCapa(src, tipo, nombre){
+  const relacion = await medirMedio(tipo, src);
+  proyecto.capas.push({
+    id: 'c' + Date.now() + Math.random().toString(36).slice(2,6),
+    nombre: nombre || (tipo === 'video' ? 'Video' : 'Capa'),
+    tipo, src, relacion,
+    x: 0, y: 0, ancho: 0.6, rotacion: 0, opacidad: 1,
+    visible: true, bucle: true, silenciado: true
+  });
+  seleccion = proyecto.capas.length - 1;
+  pintarTodo(); guardar();
+}
+
+$('#btn-archivo').addEventListener('click', () => $('#f-capa').click());
+$('#f-capa').addEventListener('change', async e => {
+  for (const f of e.target.files){
+    const tipo = tipoDesdeMime(f.type, f.name);
+    if (f.size > 12 * 1048576) brindis(`${f.name} pesa mucho: mejor subilo aparte y usá URL`);
+    await agregarCapa(await leerComoDataURL(f), tipo, f.name.replace(/\.[^.]+$/, ''));
+  }
+  e.target.value = '';
+});
+
+$('#btn-url').addEventListener('click', async () => {
+  const u = prompt('Dirección del archivo (absoluta o relativa a visor.html):\nEj.: medios/dragon.mp4');
+  if (!u) return;
+  const ext = (u.split('?')[0].split('.').pop() || '').toLowerCase();
+  const tipo = ['mp4','webm','mov','m4v'].includes(ext) ? 'video' : (ext === 'gif' ? 'gif' : 'imagen');
+  await agregarCapa(u.trim(), tipo, u.split('/').pop());
+});
+
+function pintarLista(){
+  const cont = $('#lista-capas');
+  cont.innerHTML = '';
+  $('#capas-vacias').hidden = proyecto.capas.length > 0;
+
+  proyecto.capas.forEach((capa, i) => {
+    const el = document.createElement('div');
+    el.className = 'capa-item' + (i === seleccion ? ' sel' : '');
+    el.innerHTML = `
+      <div class="num">${String(i+1).padStart(2,'0')}</div>
+      ${capa.tipo === 'video'
+        ? `<video class="mini" muted playsinline></video>`
+        : `<img class="mini" alt="">`}
+      <div class="datos"><div class="nom"></div><div class="tipo">${capa.tipo}</div></div>
+      <div class="ctrl">
+        <button class="icono ${capa.visible ? '' : 'apagado'}" data-a="ver"    title="Mostrar u ocultar">◉</button>
+        <button class="icono" data-a="subir" title="Subir una posición">↑</button>
+        <button class="icono" data-a="bajar" title="Bajar una posición">↓</button>
+      </div>`;
+    el.querySelector('.mini').src = capa.src;
+    el.querySelector('.nom').textContent = capa.nombre;
+    el.addEventListener('click', ev => {
+      const b = ev.target.closest('[data-a]');
+      if (!b){ seleccion = i; pintarTodo(); return; }
+      const a = b.dataset.a;
+      if (a === 'ver'){
+        capa.visible = !capa.visible;
+      } else if (a === 'subir' && i < proyecto.capas.length - 1){
+        proyecto.capas.splice(i + 1, 0, proyecto.capas.splice(i, 1)[0]);
+        seleccion = i + 1;
+      } else if (a === 'bajar' && i > 0){
+        proyecto.capas.splice(i - 1, 0, proyecto.capas.splice(i, 1)[0]);
+        seleccion = i - 1;
       }
+      pintarTodo(); guardar();
+    });
+    cont.appendChild(el);
+  });
+}
+
+/* ═══════════ escenario ═══════════ */
+function fuenteMarcador(){
+  return proyecto.marcador.modo === 'qr'
+    ? (salidas['marcador.png'] || '')
+    : (proyecto.marcador.imagen || '');
+}
+
+let nodosCapa = [];
+
+function ubicarNodo(nodo, capa, W, rel){
+  const anchoPx = capa.ancho * W;
+  nodo.style.width  = anchoPx + 'px';
+  nodo.style.height = (anchoPx / (capa.relacion || 1)) + 'px';
+  nodo.style.left = (W * (capa.x + 0.5)) + 'px';
+  nodo.style.top  = (W * (0.5 / rel - capa.y)) + 'px';
+  nodo.style.transform = `translate(-50%,-50%) rotate(${-capa.rotacion}deg)`;
+  nodo.style.opacity = capa.opacidad;
+}
+
+function pintarEscenario(){
+  const esc = $('#escenario');
+  const src = fuenteMarcador();
+  const rel = proyecto.marcador.relacion || 0.75;
+
+  esc.style.aspectRatio = rel;
+  $('#fondo-marcador').hidden = !src;
+  if (src && $('#fondo-marcador').src !== src) $('#fondo-marcador').src = src;
+  $('#sin-marcador').hidden = !!src;
+
+  esc.querySelectorAll('.capa-vista').forEach(n => n.remove());
+  nodosCapa = [];
+  const W = esc.clientWidth || 480;
+
+  proyecto.capas.forEach((capa, i) => {
+    if (!capa.visible){ nodosCapa[i] = null; return; }
+    const d = document.createElement('div');
+    d.className = 'capa-vista' + (i === seleccion ? ' sel' : '');
+    d.style.zIndex = 10 + i;
+    d.innerHTML = capa.tipo === 'video'
+      ? `<video muted loop autoplay playsinline></video>`
+      : `<img alt="">`;
+    d.firstChild.src = capa.src;
+    ubicarNodo(d, capa, W, rel);
+    d.addEventListener('pointerdown', ev => arrastrar(ev, i, d));
+    esc.appendChild(d);
+    nodosCapa[i] = d;
+  });
+
+  $('#r-marcador').textContent = src ? rel.toFixed(2) + ' : 1' : '—';
+  $('#r-capas').textContent = String(proyecto.capas.length).padStart(2,'0');
+}
+
+/* El peso se recalcula aparte: serializar data URLs es caro y no hace falta
+   hacerlo en cada cuadro del arrastre. */
+function pintarPeso(){
+  $('#r-peso').textContent = pesoDe(JSON.stringify(construirExperiencia(false)));
+}
+
+function arrastrar(ev, i, nodo){
+  ev.preventDefault();
+  if (seleccion !== i){ seleccion = i; pintarTodo(); nodo = nodosCapa[i]; }
+  nodo.classList.add('arrastrando');
+  nodo.setPointerCapture && nodo.setPointerCapture(ev.pointerId);
+
+  const esc = $('#escenario'), W = esc.clientWidth;
+  const rel = proyecto.marcador.relacion || 0.75;
+  const capa = proyecto.capas[i];
+  const x0 = ev.clientX, y0 = ev.clientY, cx = capa.x, cy = capa.y;
+
+  const mover = e => {
+    capa.x = cx + (e.clientX - x0) / W;
+    capa.y = cy - (e.clientY - y0) / W;
+    ubicarNodo(nodo, capa, W, rel);
+    pintarProps();
+  };
+  const soltar = () => {
+    nodo.classList.remove('arrastrando');
+    window.removeEventListener('pointermove', mover);
+    window.removeEventListener('pointerup', soltar);
+    guardar();
+  };
+  window.addEventListener('pointermove', mover);
+  window.addEventListener('pointerup', soltar);
+}
+
+/* ═══════════ propiedades ═══════════ */
+const controles = [
+  ['#s-ancho','ancho','#v-ancho', v => v.toFixed(2) + ' ×'],
+  ['#s-rot','rotacion','#v-rot',  v => Math.round(v) + '°'],
+  ['#s-op','opacidad','#v-op',    v => Math.round(v*100) + ' %'],
+  ['#s-x','x','#v-x',             v => v.toFixed(3)],
+  ['#s-y','y','#v-y',             v => v.toFixed(3)]
+];
+controles.forEach(([sel, prop]) => {
+  $(sel).addEventListener('input', e => {
+    const capa = proyecto.capas[seleccion]; if (!capa) return;
+    capa[prop] = parseFloat(e.target.value);
+    const nodo = nodosCapa[seleccion];
+    if (nodo) ubicarNodo(nodo, capa, $('#escenario').clientWidth, proyecto.marcador.relacion || 0.75);
+    pintarProps();
+  });
+  $(sel).addEventListener('change', guardar);
+});
+$('#c-bucle').addEventListener('change', e => { proyecto.capas[seleccion].bucle = e.target.checked; guardar(); });
+$('#c-silencio').addEventListener('change', e => { proyecto.capas[seleccion].silenciado = e.target.checked; guardar(); });
+$('#btn-borrar').addEventListener('click', () => {
+  if (seleccion == null) return;
+  proyecto.capas.splice(seleccion, 1);
+  seleccion = proyecto.capas.length ? Math.max(0, seleccion - 1) : null;
+  pintarTodo(); guardar();
+});
+$('#btn-centrar').addEventListener('click', () => {
+  const capa = proyecto.capas[seleccion]; if (!capa) return;
+  capa.x = 0; capa.y = 0; pintarTodo(); guardar();
+});
+
+function pintarProps(){
+  const capa = proyecto.capas[seleccion];
+  $('#bloque-props').hidden = !capa;
+  if (!capa) return;
+  controles.forEach(([sel, prop, vsel, fmt]) => {
+    $(sel).value = capa[prop];
+    $(vsel).textContent = fmt(capa[prop]);
+  });
+  $('#props-video').hidden = capa.tipo !== 'video';
+  $('#c-bucle').checked = capa.bucle !== false;
+  $('#c-silencio').checked = capa.silenciado !== false;
+}
+
+function pintarTodo(){ pintarLista(); pintarEscenario(); pintarProps(); pintarEnlace(); pintarPeso(); }
+
+/* ═══════════ marcador ═══════════ */
+document.querySelectorAll('input[name=modo-marcador]').forEach(r => {
+  r.addEventListener('change', e => {
+    proyecto.marcador.modo = e.target.value;
+    $('#op-qr').classList.toggle('sel', e.target.value === 'qr');
+    $('#op-img').classList.toggle('sel', e.target.value === 'imagen');
+    $('#zona-marcador').hidden = e.target.value !== 'imagen';
+    if (e.target.value === 'qr') proyecto.marcador.relacion = 0.75;
+    proyecto.marcador.mind = '';
+    pintarTodo(); guardar();
+  });
+});
+$('#btn-marcador').addEventListener('click', () => $('#f-marcador').click());
+$('#f-marcador').addEventListener('change', async e => {
+  const f = e.target.files[0]; if (!f) return;
+  const src = await leerComoDataURL(f);
+  const img = await cargarImagen(src);
+  proyecto.marcador.imagen = src;
+  proyecto.marcador.relacion = img.naturalWidth / img.naturalHeight;
+  proyecto.marcador.mind = '';
+  pintarTodo(); guardar(); brindis('Marcador cargado');
+  e.target.value = '';
+});
+
+/* Ficha imprimible: marco negro grueso, marcas de esquina asimétricas y el QR
+   al centro. El marco y las marcas son lo que le da al rastreador puntos
+   estables; un QR solo, sin contexto, se sigue peor. */
+async function generarTarjeta(url, titulo){
+  const W = 900, H = 1200, m = 26, grosor = 30;
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const g = c.getContext('2d');
+
+  g.fillStyle = '#FFFFFF'; g.fillRect(0, 0, W, H);
+  g.strokeStyle = '#000000';
+  g.lineWidth = grosor;
+  g.strokeRect(m + grosor/2, m + grosor/2, W - 2*m - grosor, H - 2*m - grosor);
+  g.lineWidth = 3;
+  g.strokeRect(m + grosor + 14, m + grosor + 14, W - 2*(m + grosor + 14), H - 2*(m + grosor + 14));
+
+  // marcas de esquina: cuatro formas distintas → orientación inequívoca
+  const d = m + grosor + 52;
+  g.fillStyle = '#000';
+  g.beginPath(); g.arc(d, d, 22, 0, Math.PI*2); g.fill();                                  // ●
+  g.beginPath(); g.moveTo(W-d, d-22); g.lineTo(W-d+22, d+18); g.lineTo(W-d-22, d+18); g.closePath(); g.fill();  // ▲
+  g.fillRect(d-21, H-d-21, 42, 42);                                                        // ■
+  g.lineWidth = 8; g.beginPath(); g.arc(W-d, H-d, 19, 0, Math.PI*2); g.stroke();           // ○
+
+  const centro = W / 2;
+  g.textAlign = 'center'; g.fillStyle = '#000';
+  g.font = '800 46px Archivo, sans-serif';
+  const t = (titulo || 'Experiencia AR').toUpperCase();
+  g.fillText(t.length > 24 ? t.slice(0, 23) + '…' : t, centro, 218);
+  g.fillRect(centro - 150, 250, 300, 4);
+
+  const lado = 560;
+  const cq = document.createElement('canvas');
+  await new Promise((res, rej) => {
+    QRCode.toCanvas(cq, url, { width: lado, margin: 1, errorCorrectionLevel: 'M',
+      color: { dark: '#000000', light: '#FFFFFF' } }, e => e ? rej(e) : res());
+  });
+  g.drawImage(cq, centro - lado/2, 320, lado, lado);
+
+  g.font = '600 27px Archivo, sans-serif';
+  g.fillText('Escaneá el código y apuntá la cámara a esta ficha', centro, 968);
+  g.font = '400 21px "IBM Plex Mono", monospace';
+  g.fillStyle = '#555';
+  let host = url; try { host = new URL(url).host; } catch(e){}
+  g.fillText(host, centro, 1006);
+  g.fillStyle = '#000';
+  g.font = '500 19px "IBM Plex Mono", monospace';
+  g.fillText('MANTENÉ LA FICHA COMPLETA Y BIEN ILUMINADA', centro, 1078);
+
+  const qrSolo = document.createElement('canvas');
+  await new Promise((res, rej) => {
+    QRCode.toCanvas(qrSolo, url, { width: 900, margin: 2, errorCorrectionLevel: 'M' },
+      e => e ? rej(e) : res());
+  });
+
+  return { tarjeta: c.toDataURL('image/png'), qr: qrSolo.toDataURL('image/png') };
+}
+
+/* Miniatura liviana del marcador para mostrar en la pantalla de inicio del visor */
+async function miniatura(src, ancho = 380){
+  const img = await cargarImagen(src);
+  const c = document.createElement('canvas');
+  c.width = ancho; c.height = Math.round(ancho * img.naturalHeight / img.naturalWidth);
+  c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+  return c.toDataURL('image/jpeg', 0.72);
+}
+
+/* ═══════════ publicar ═══════════ */
+function enlaceFinal(){
+  let base = (proyecto.urlBase || '').trim();
+  if (!base) return '';
+  if (!/^https?:\/\//i.test(base)) base = 'https://' + base;
+  if (!base.endsWith('/')) base += '/';
+  return base + 'visor.html?exp=' + encodeURIComponent(proyecto.archivo || 'experiencia.json');
+}
+function pintarEnlace(){
+  $('#v-enlace').textContent = enlaceFinal() || '—';
+}
+
+function construirExperiencia(conMind = true){
+  return {
+    version: 1,
+    titulo: proyecto.titulo || 'Experiencia AR',
+    descripcion: proyecto.descripcion || '',
+    urlBase: proyecto.urlBase,
+    archivo: proyecto.archivo,
+    marcador: {
+      modo: proyecto.marcador.modo,
+      relacion: proyecto.marcador.relacion,
+      imagen: proyecto.marcador.modo === 'imagen' ? proyecto.marcador.imagen : '',
+      vistaPrevia: proyecto.marcador.vistaPrevia,
+      mind: conMind ? proyecto.marcador.mind : ''
+    },
+    capas: proyecto.capas.map(c => ({
+      id: c.id, nombre: c.nombre, tipo: c.tipo, src: c.src, relacion: c.relacion,
+      x: +c.x.toFixed(4), y: +c.y.toFixed(4), ancho: +c.ancho.toFixed(4),
+      rotacion: c.rotacion, opacidad: +c.opacidad.toFixed(3),
+      visible: c.visible, bucle: c.bucle, silenciado: c.silenciado
+    }))
+  };
+}
+
+async function compilarMind(dataURL, alProgreso){
+  const img = await cargarImagen(dataURL);
+  const compilador = new window.MINDAR.IMAGE.Compiler();
+  await compilador.compileImageTargets([img], p => alProgreso(p));
+  const datos = await compilador.exportData();
+  const bytes = datos instanceof Uint8Array ? datos : new Uint8Array(datos);
+  let bin = '';
+  const paso = 8192;
+  for (let i = 0; i < bytes.length; i += paso)
+    bin += String.fromCharCode.apply(null, bytes.subarray(i, i + paso));
+  return btoa(bin);
+}
+
+$('#btn-publicar').addEventListener('click', async () => {
+  const url = enlaceFinal();
+  if (!url){ estado('Falta la dirección donde vas a publicar. Sin ella el QR no apunta a ningún lado.'); return; }
+  if (!proyecto.capas.length){ estado('Agregá al menos una capa antes de publicar.'); return; }
+  if (proyecto.marcador.modo === 'imagen' && !proyecto.marcador.imagen){
+    estado('Elegí la imagen del marcador o cambiá a "Usar el QR como marcador".'); return;
+  }
+  if (!window.MINDAR || !window.MINDAR.IMAGE){
+    estado('No se cargó la librería de compilación. Revisá la conexión y recargá la página.'); return;
+  }
+
+  const btn = $('#btn-publicar');
+  btn.disabled = true; salidas = {};
+  $('#salidas').hidden = true; $('#btn-previa').hidden = true;
+  $('#prog').hidden = false; $('#prog i').style.width = '0%';
+
+  try {
+    let fuente;
+    if (proyecto.marcador.modo === 'qr'){
+      estado('Generando la ficha con el QR…');
+      const { tarjeta, qr } = await generarTarjeta(url, proyecto.titulo);
+      salidas['marcador.png'] = tarjeta;
+      salidas['qr.png'] = qr;
+      fuente = tarjeta;
+      proyecto.marcador.relacion = 900 / 1200;
+      $('#img-tarjeta').src = tarjeta; $('#qr-caja').hidden = false;
+    } else {
+      const { qr } = await generarTarjeta(url, proyecto.titulo);
+      salidas['qr.png'] = qr;
+      const mime = (proyecto.marcador.imagen.match(/^data:image\/(\w+)/) || [,'png'])[1];
+      salidas['marcador.' + (mime === 'jpeg' ? 'jpg' : mime)] = proyecto.marcador.imagen;
+      fuente = proyecto.marcador.imagen;
+      $('#img-tarjeta').src = qr; $('#qr-caja').hidden = false;
     }
-    
-    // ===== DOWNLOAD QR =====
-    function downloadQR() {
-      const display = document.getElementById('qrDisplay');
-      const canvas = display.querySelector('canvas');
-      if (!canvas) { showToast('QR no listo'); return; }
-      
-      const padding = 24;
-      const labelHeight = 44;
-      const tempCanvas = document.createElement('canvas');
-      tempCanvas.width = canvas.width + padding * 2;
-      tempCanvas.height = canvas.height + padding * 2 + labelHeight;
-      
-      const ctx = tempCanvas.getContext('2d');
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
-      ctx.drawImage(canvas, padding, padding);
-      
-      ctx.fillStyle = '#1d1d1f';
-      ctx.font = 'bold 16px -apple-system, BlinkMacSystemFont, sans-serif';
-      ctx.textAlign = 'center';
-      const safeName = lastCreatedName.replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑüÜ\s\-_]/g, '').substring(0, 40) || 'Experiencia AR';
-      ctx.fillText(safeName, tempCanvas.width / 2, canvas.height + padding * 2 + 16);
-      
-      const link = document.createElement('a');
-      link.download = safeName.replace(/\s+/g, '_') + '.png';
-      link.href = tempCanvas.toDataURL('image/png');
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      showToast('QR descargado');
-    }
-    
-    // ===== RENDER LIST =====
-    function renderList() {
-      const list = getExperiences();
-      const container = document.getElementById('experiencesList');
-      
-      if (list.length === 0) {
-        container.innerHTML = `
-          <div class="empty-state">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-              <rect x="3" y="3" width="18" height="18" rx="2"/>
-              <circle cx="8.5" cy="8.5" r="1.5"/>
-              <path d="M21 15l-5-5L5 21"/>
-            </svg>
-            <p>No hay experiencias creadas aún.<br>Sube tu primer contenido AR arriba.</p>
-          </div>`;
-        return;
-      }
-      
-      container.innerHTML = '<div class="experiences-grid">' + list.map(exp => {
-        const isGif = exp.content.type === 'image/gif';
-        const date = new Date(exp.createdAt).toLocaleDateString('es-ES', {
-          day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
-        });
-        const viewerUrl = getBaseUrl() + '?id=' + exp.id;
-        const hasTarget = exp.target ? 'Custom target' : 'Marcador Hiro';
-        
-        return `
-          <div class="exp-card">
-            <div class="exp-thumb">
-              <img src="${exp.content.data}" alt="" onerror="this.style.display='none'">
-            </div>
-            <div class="exp-info">
-              <div class="exp-name">${escapeHtml(exp.name)}</div>
-              <div class="exp-meta">
-                ${date} · <span class="badge badge-${isGif?'gif':'png'}">${isGif?'GIF':'PNG'}</span> · ${hasTarget}
-              </div>
-              <div class="actions">
-                <button class="btn-small" onclick="showQRById('${exp.id}')">Ver QR</button>
-                <button class="btn-small btn-download" onclick="downloadQRById('${exp.id}')">⬇️ QR</button>
-                <button class="btn-small" onclick="window.open('${viewerUrl}','_blank')">Probar</button>
-                <button class="btn-small btn-danger" onclick="deleteExp('${exp.id}')">Eliminar</button>
-              </div>
-            </div>
-            <div class="exp-qr" id="qr-${exp.id}"></div>
-          </div>
-        `;
-      }).join('') + '</div>';
-      
-      setTimeout(() => {
-        list.forEach(exp => {
-          const el = document.getElementById('qr-' + exp.id);
-          if (el) {
-            new QRCode(el, {
-              text: getBaseUrl() + '?id=' + exp.id,
-              width: 64,
-              height: 64,
-              correctLevel: QRCode.CorrectLevel.L
-            });
-          }
-        });
-      }, 50);
-    }
-    
-    function showQRById(id) {
-      const exp = getExperiences().find(e => e.id === id);
-      if (exp) { lastCreatedId = id; showQR(exp); }
-    }
-    
-    function downloadQRById(id) {
-      const exp = getExperiences().find(e => e.id === id);
-      if (!exp) return;
-      
-      const tempDiv = document.createElement('div');
-      tempDiv.style.position = 'absolute';
-      tempDiv.style.left = '-9999px';
-      document.body.appendChild(tempDiv);
-      
-      new QRCode(tempDiv, {
-        text: getBaseUrl() + '?id=' + id,
-        width: 200,
-        height: 200,
-        correctLevel: QRCode.CorrectLevel.M
-      });
-      
-      setTimeout(() => {
-        const canvas = tempDiv.querySelector('canvas');
-        if (canvas) {
-          const padding = 24;
-          const labelHeight = 44;
-          const tc = document.createElement('canvas');
-          tc.width = canvas.width + padding * 2;
-          tc.height = canvas.height + padding * 2 + labelHeight;
-          const ctx = tc.getContext('2d');
-          ctx.fillStyle = '#ffffff';
-          ctx.fillRect(0, 0, tc.width, tc.height);
-          ctx.drawImage(canvas, padding, padding);
-          ctx.fillStyle = '#1d1d1f';
-          ctx.font = 'bold 16px -apple-system, BlinkMacSystemFont, sans-serif';
-          ctx.textAlign = 'center';
-          const safeName = exp.name.replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑüÜ\s\-_]/g, '').substring(0, 40) || 'Experiencia AR';
-          ctx.fillText(safeName, tc.width / 2, canvas.height + padding * 2 + 16);
-          
-          const link = document.createElement('a');
-          link.download = safeName.replace(/\s+/g, '_') + '.png';
-          link.href = tc.toDataURL('image/png');
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          showToast('QR descargado');
-        }
-        document.body.removeChild(tempDiv);
-      }, 300);
-    }
-    
-    function deleteExp(id) {
-      if (!confirm('¿Eliminar esta experiencia?')) return;
-      saveExperiences(getExperiences().filter(e => e.id !== id));
-      renderList();
-      showToast('Experiencia eliminada');
-    }
-    
-    function escapeHtml(text) {
-      const div = document.createElement('div');
-      div.textContent = text;
-      return div.innerHTML;
-    }
-    
-    // ===== EXPORT / IMPORT =====
-    function exportData() {
-      const data = getExperiences();
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'ar-experiences-' + new Date().toISOString().slice(0,10) + '.json';
-      a.click();
-      URL.revokeObjectURL(url);
-      showToast('Datos exportados');
-    }
-    
-    function importData(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const imported = JSON.parse(e.target.result);
-          if (!Array.isArray(imported)) throw new Error('Formato inválido');
-          const current = getExperiences();
-          const merged = [...imported, ...current];
-          const seen = new Set();
-          const unique = [];
-          merged.forEach(item => { if (!seen.has(item.id)) { seen.add(item.id); unique.push(item); } });
-          saveExperiences(unique);
-          renderList();
-          showToast(`Importadas ${imported.length} experiencias`);
-        } catch (err) {
-          showToast('Error al importar: ' + err.message);
-        }
-      };
-      reader.readAsText(file);
-      event.target.value = '';
-    }
-    
-    function clearAll() {
-      if (!confirm('¿Eliminar TODAS las experiencias?')) return;
-      localStorage.removeItem(STORAGE_KEY);
-      renderList();
-      showToast('Todas las experiencias eliminadas');
-    }
-    
-    renderList();
-  </script>
+
+    estado('Compilando el marcador. Esto tarda entre 10 y 60 segundos.');
+    proyecto.marcador.vistaPrevia = await miniatura(fuente);
+    proyecto.marcador.mind = await compilarMind(fuente, p => {
+      $('#prog i').style.width = Math.min(100, Math.round(p)) + '%';
+    });
+
+    const exp = construirExperiencia(true);
+    const json = JSON.stringify(exp);
+    salidas[proyecto.archivo || 'experiencia.json'] =
+      'data:application/json;charset=utf-8,' + encodeURIComponent(json);
+
+    try { localStorage.setItem('webar_preview', json); } catch(e){}
+
+    pintarSalidas(json);
+    estado('Listo. Descargá los tres archivos y subilos a la misma carpeta que visor.html.', 'ok');
+    $('#btn-previa').hidden = false;
+    pintarTodo();
+  } catch (e){
+    console.error(e);
+    estado('No se pudo completar: ' + (e.message || e));
+  } finally {
+    btn.disabled = false;
+    $('#prog').hidden = true;
+  }
+});
+
+function pintarSalidas(json){
+  const cont = $('#salidas');
+  cont.hidden = false;
+  cont.innerHTML = '';
+  const nombreExp = proyecto.archivo || 'experiencia.json';
+  const pesos = { [nombreExp]: pesoDe(json) };
+
+  Object.keys(salidas).forEach(nombre => {
+    const fila = document.createElement('div');
+    fila.className = 'salida';
+    fila.innerHTML = `<span class="n"></span><span class="p">${pesos[nombre] || ''}</span>
+                      <button class="btn">Descargar</button>`;
+    fila.querySelector('.n').textContent = nombre;
+    fila.querySelector('button').addEventListener('click', () => descargar(nombre, salidas[nombre]));
+    cont.appendChild(fila);
+  });
+
+  const copiar = document.createElement('button');
+  copiar.className = 'btn ancho';
+  copiar.textContent = 'Copiar el enlace del QR';
+  copiar.addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(enlaceFinal()); brindis('Enlace copiado'); }
+    catch(e){ prompt('Copialo a mano:', enlaceFinal()); }
+  });
+  cont.appendChild(copiar);
+
+  if (new Blob([json]).size > 6 * 1048576){
+    const av = document.createElement('div');
+    av.className = 'aviso-caja';
+    av.textContent = 'La experiencia pesa más de 6 MB. En una red móvil va a tardar en abrir: subí los videos aparte y agregalos con URL.';
+    cont.appendChild(av);
+  }
+}
+
+$('#btn-previa').addEventListener('click', () => {
+  window.open('visor.html?exp=local:preview', '_blank');
+});
+
+/* ═══════════ proyecto: guardar, abrir, reiniciar ═══════════ */
+['#in-titulo','#in-desc','#in-base','#in-archivo'].forEach(sel => {
+  $(sel).addEventListener('input', e => {
+    const mapa = { '#in-titulo':'titulo', '#in-desc':'descripcion', '#in-base':'urlBase', '#in-archivo':'archivo' };
+    proyecto[mapa[sel]] = e.target.value;
+    pintarEnlace(); guardar();
+  });
+});
+
+let temporizadorGuardado;
+function guardar(){
+  clearTimeout(temporizadorGuardado);
+  temporizadorGuardado = setTimeout(() => {
+    try {
+      const s = JSON.stringify(proyecto);
+      if (s.length < 4.5 * 1048576) localStorage.setItem(CLAVE, s);
+    } catch(e){ /* sin espacio: el proyecto sigue en memoria */ }
+  }, 400);
+}
+
+function aplicarProyecto(p){
+  proyecto = Object.assign(proyectoVacio(), p);
+  proyecto.marcador = Object.assign(proyectoVacio().marcador, p.marcador || {});
+  proyecto.capas = (p.capas || []).map(c => Object.assign({
+    relacion:1, x:0, y:0, ancho:.6, rotacion:0, opacidad:1, visible:true, bucle:true, silenciado:true
+  }, c));
+  seleccion = proyecto.capas.length ? 0 : null;
+
+  $('#in-titulo').value = proyecto.titulo;
+  $('#in-desc').value = proyecto.descripcion;
+  $('#in-base').value = proyecto.urlBase;
+  $('#in-archivo').value = proyecto.archivo;
+  const modo = proyecto.marcador.modo || 'qr';
+  document.querySelector(`input[name=modo-marcador][value="${modo}"]`).checked = true;
+  $('#op-qr').classList.toggle('sel', modo === 'qr');
+  $('#op-img').classList.toggle('sel', modo === 'imagen');
+  $('#zona-marcador').hidden = modo !== 'imagen';
+  if (modo === 'imagen' && proyecto.marcador.imagen) salidas = {};
+  pintarTodo();
+}
+
+$('#btn-abrir').addEventListener('click', () => $('#f-proyecto').click());
+$('#f-proyecto').addEventListener('change', async e => {
+  const f = e.target.files[0]; if (!f) return;
+  try { aplicarProyecto(JSON.parse(await f.text())); brindis('Proyecto abierto'); }
+  catch(err){ brindis('Ese archivo no es una experiencia válida'); }
+  e.target.value = '';
+});
+$('#btn-nuevo').addEventListener('click', () => {
+  if (!confirm('Se descarta el proyecto actual. ¿Seguir?')) return;
+  localStorage.removeItem(CLAVE);
+  salidas = {}; $('#qr-caja').hidden = true; $('#salidas').hidden = true;
+  $('#btn-previa').hidden = true; estado('');
+  aplicarProyecto(proyectoVacio());
+});
+
+window.addEventListener('resize', () => pintarEscenario());
+
+(function inicio(){
+  let guardado = null;
+  try { guardado = JSON.parse(localStorage.getItem(CLAVE) || 'null'); } catch(e){}
+  aplicarProyecto(guardado || proyectoVacio());
+  if (!guardado){
+    $('#in-titulo').value = proyecto.titulo = 'Experiencia AR';
+    $('#in-desc').value = proyecto.descripcion = 'Apuntá la cámara al marcador para ver el contenido.';
+    pintarEnlace();
+  }
+})();
+</script>
 </body>
 </html>
