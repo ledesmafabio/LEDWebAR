@@ -10,9 +10,21 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23101215'/%3E%3Crect x='8' y='8' width='16' height='16' fill='none' stroke='%23E8433A' stroke-width='2.5'/%3E%3Crect x='11' y='11' width='16' height='16' fill='none' stroke='%2321C3D6' stroke-width='2.5'/%3E%3C/svg%3E">
+
 <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image.prod.js"></script>
+
+<!-- MindAR publica su compilador como módulo ES y con "three" como
+     especificador desnudo. El import map le dice al navegador dónde encontrarlo;
+     la carga real se hace más abajo, cuando hace falta compilar. -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.module.js",
+    "three/": "https://cdn.jsdelivr.net/npm/three@0.147.0/"
+  }
+}
+</script>
 
 <style>
 :root{
@@ -708,9 +720,81 @@ async function miniatura(src, ancho = 380){
   return c.toDataURL('image/jpeg', 0.72);
 }
 
+/* ───────── carga del compilador de MindAR ─────────
+   Las distribuciones de MindAR no son homogéneas: algunas versiones publican
+   mindar-image.prod.js como módulo ES y otras como script clásico. En lugar de
+   apostar a una, probamos las dos formas y, si ninguna anda, el bundle de
+   A-Frame, que también trae el compilador adentro. */
+const FUENTES_MINDAR = [
+  'https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image.prod.js',
+  'https://unpkg.com/mind-ar@1.2.5/dist/mindar-image.prod.js',
+  'https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js'
+];
+
+function cargarScript(url){
+  return new Promise((res, rej) => {
+    if (document.querySelector('script[data-mindar="' + url + '"]')) return res();
+    const s = document.createElement('script');
+    s.src = url;
+    s.dataset.mindar = url;
+    s.onload = () => res();
+    s.onerror = () => rej(new Error('No se pudo descargar ' + url));
+    document.head.appendChild(s);
+  });
+}
+
+const globalCompilador = () =>
+  (window.MINDAR && window.MINDAR.IMAGE && window.MINDAR.IMAGE.Compiler) || null;
+
+let compiladorCache = null;
+let compiladorPromesa = null;
+
+function obtenerCompilador(){
+  if (compiladorCache) return Promise.resolve(compiladorCache);
+  if (compiladorPromesa) return compiladorPromesa;
+
+  compiladorPromesa = (async () => {
+    const fallas = [];
+    const yaEsta = globalCompilador();
+    if (yaEsta) return (compiladorCache = yaEsta);
+
+    // 1) como módulo ES
+    for (const url of FUENTES_MINDAR){
+      try {
+        const mod = await import(/* webpackIgnore: true */ url);
+        const C = (mod && mod.Compiler) ||
+                  (mod && mod.default && mod.default.Compiler) ||
+                  globalCompilador();
+        if (C) return (compiladorCache = C);
+        fallas.push(url + ': el módulo no expone Compiler');
+      } catch (e){ fallas.push(url + ' (módulo): ' + e.message); }
+    }
+
+    // 2) como script clásico
+    for (const url of FUENTES_MINDAR){
+      try {
+        await cargarScript(url);
+        const C = globalCompilador();
+        if (C) return (compiladorCache = C);
+        fallas.push(url + ': cargó pero no dejó MINDAR.IMAGE.Compiler');
+      } catch (e){ fallas.push(url + ' (script): ' + e.message); }
+    }
+
+    console.warn('[MindAR] intentos fallidos:\n' + fallas.join('\n'));
+    const err = new Error('No se pudo cargar el compilador de MindAR desde ningún CDN. ' +
+      'Revisá la conexión o si hay un bloqueador de scripts; el detalle está en la consola.');
+    err.fallas = fallas;
+    throw err;
+  })();
+
+  compiladorPromesa.catch(() => { compiladorPromesa = null; });   // permite reintentar
+  return compiladorPromesa;
+}
+
 async function compilarMind(dataURL, alProgreso){
+  const Compiler = await obtenerCompilador();
   const img = await cargarImagen(dataURL);
-  const comp = new window.MINDAR.IMAGE.Compiler();
+  const comp = new Compiler();
   await comp.compileImageTargets([img], p => alProgreso(p));
   const datos = await comp.exportData();
   const bytes = datos instanceof Uint8Array ? datos : new Uint8Array(datos);
@@ -762,9 +846,6 @@ $('#btn-publicar').addEventListener('click', async () => {
   if (proyecto.marcador.modo === 'imagen' && !proyecto.marcador.imagen){
     estado('Elegí la imagen del marcador o volvé a "Usar el QR como marcador".'); return;
   }
-  if (!window.MINDAR || !window.MINDAR.IMAGE){
-    estado('No se cargó la librería de compilación. Revisá la conexión y recargá.'); return;
-  }
 
   const btn = $('#btn-publicar');
   btn.disabled = true;
@@ -788,6 +869,9 @@ $('#btn-publicar').addEventListener('click', async () => {
 
     estado('Compilando el marcador. Tarda entre 10 y 60 segundos.');
     proyecto.marcador.vistaPrevia = await miniatura(fuente);
+    if (!compiladorCache) estado('Descargando el compilador de MindAR…');
+    await obtenerCompilador();
+    estado('Compilando el marcador. Tarda entre 10 y 60 segundos.');
     proyecto.marcador.mind = await compilarMind(fuente, p => {
       $('#prog i').style.width = Math.min(100, Math.round(p)) + '%';
     });
@@ -988,6 +1072,13 @@ window.addEventListener('resize', pintarEscenario);
     $('#in-desc').value = proyecto.descripcion;
   }
   await cargarBiblioteca();
+
+  // Precarga silenciosa: si el CDN está caído conviene saberlo ahora y no
+  // después de haber compuesto toda la experiencia.
+  obtenerCompilador().catch(e => {
+    estado('El compilador de MindAR no se pudo descargar. Podés seguir componiendo, pero al guardar va a fallar. ' +
+           'Revisá la conexión o si hay un bloqueador de scripts.');
+  });
 })();
 </script>
 </body>
