@@ -136,6 +136,19 @@ input[type=range]::-moz-range-thumb{width:17px;height:17px;border-radius:50%;bac
 .opcion .t{font-size:13.5px}
 .opcion .d{font-size:11.5px;color:var(--tenue);line-height:1.45;margin-top:3px}
 
+#plan-b{border-top:1px solid var(--linea);padding-top:12px}
+#plan-b summary{font-size:12px;color:var(--tenue);cursor:pointer;list-style:none;
+  display:flex;align-items:center;gap:7px}
+#plan-b summary::-webkit-details-marker{display:none}
+#plan-b summary::before{content:'+';font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--linea-viva)}
+#plan-b[open] summary::before{content:'–'}
+#plan-b summary:hover{color:var(--texto)}
+#plan-b>.pista{margin:12px 0 10px}
+.pasos-b{margin:0;padding-left:20px;display:grid;gap:9px;font-size:12.5px;color:var(--tenue);line-height:1.5}
+.pasos-b li::marker{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--linea-viva)}
+.pasos-b .btn{padding:6px 10px;font-size:12px;margin-top:4px}
+.pasos-b a{color:var(--cian)}
+
 .enlace-caja{background:#0C0E11;border:1px solid var(--linea);border-radius:9px;padding:10px 12px;
   font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--cian);word-break:break-all;line-height:1.5}
 .progreso{height:2px;background:var(--linea);border-radius:2px;overflow:hidden}
@@ -220,6 +233,17 @@ input[type=range]::-moz-range-thumb{width:17px;height:17px;border-radius:50%;bac
           <button class="btn ancho" id="btn-marcador">Elegir imagen del marcador</button>
           <p class="pista" style="margin:9px 0 0">Al menos 800 px de lado, contraste alto, sin grandes zonas lisas.</p>
         </div>
+
+        <details id="plan-b">
+          <summary>Si la compilación automática falla</summary>
+          <p class="pista">Se puede compilar el marcador con la herramienta oficial de MindAR y traer el resultado acá.</p>
+          <ol class="pasos-b">
+            <li>Bajá la imagen del marcador: <button class="btn" id="btn-bajar-marcador">Descargar imagen</button></li>
+            <li>Subila a <a href="https://hiukim.github.io/mind-ar-js-doc/tools/compile" target="_blank" rel="noopener">la herramienta de MindAR</a> y descargá el <span class="mono">targets.mind</span>.</li>
+            <li>Traelo de vuelta: <button class="btn" id="btn-importar-mind">Cargar .mind</button></li>
+          </ol>
+          <div id="estado-mind"></div>
+        </details>
       </div>
     </section>
 
@@ -338,6 +362,7 @@ input[type=range]::-moz-range-thumb{width:17px;height:17px;border-radius:50%;bac
 <input type="file" id="f-capa" accept="image/*,video/*" multiple hidden>
 <input type="file" id="f-marcador" accept="image/*" hidden>
 <input type="file" id="f-importar" accept="application/json,.json" hidden>
+<input type="file" id="f-mind" accept=".mind,application/octet-stream" hidden>
 
 <script>
 /* ═══════════════════════════════════════════════════════════════════
@@ -402,7 +427,7 @@ function proyectoVacio(){
   return {
     id: nuevoId(), version: 2, titulo: '', descripcion: '',
     creado: Date.now(), actualizado: Date.now(),
-    marcador: { modo:'qr', imagen:'', relacion:0.75, mind:'', vistaPrevia:'' },
+    marcador: { modo:'qr', imagen:'', relacion:0.75, mind:'', vistaPrevia:'', manual:false, fuente:'' },
     capas: [], ficha:'', qr:''
   };
 }
@@ -639,6 +664,13 @@ function pintarProps(){
 function pintarTodo(){ pintarLista(); pintarEscenario(); pintarProps(); pintarPeso(); pintarEnlace(); }
 
 /* ───────── marcador ───────── */
+function olvidarCompilado(){
+  proyecto.marcador.mind = '';
+  proyecto.marcador.manual = false;
+  proyecto.marcador.fuente = '';
+  pintarEstadoMind();
+}
+
 document.querySelectorAll('input[name=modo-marcador]').forEach(r => {
   r.addEventListener('change', e => {
     proyecto.marcador.modo = e.target.value;
@@ -646,7 +678,7 @@ document.querySelectorAll('input[name=modo-marcador]').forEach(r => {
     $('#op-img').classList.toggle('sel', e.target.value === 'imagen');
     $('#zona-marcador').hidden = e.target.value !== 'imagen';
     if (e.target.value === 'qr') proyecto.marcador.relacion = 0.75;
-    proyecto.marcador.mind = '';
+    olvidarCompilado();
     pintarTodo(); guardarBorrador();
   });
 });
@@ -657,9 +689,65 @@ $('#f-marcador').addEventListener('change', async e => {
   const img = await cargarImagen(src);
   proyecto.marcador.imagen = src;
   proyecto.marcador.relacion = img.naturalWidth / img.naturalHeight;
-  proyecto.marcador.mind = '';
+  olvidarCompilado();
   pintarTodo(); guardarBorrador(); brindis('Marcador cargado');
   e.target.value = '';
+});
+
+/* ───────── compilación manual (plan B) ─────────
+   Guardamos la imagen exacta que se mandó a compilar en marcador.fuente, para
+   que el .mind que vuelva corresponda sí o sí a esa imagen y no a una ficha
+   regenerada después. */
+function pintarEstadoMind(){
+  const c = $('#estado-mind');
+  if (!c) return;
+  if (proyecto.marcador.manual && proyecto.marcador.mind){
+    c.innerHTML = '<div class="aviso-caja ok"></div>';
+    c.firstChild.textContent = 'Hay un .mind cargado a mano. Al guardar se usa este y no se compila nada.';
+  } else if (proyecto.marcador.fuente){
+    c.innerHTML = '<div class="aviso-caja neutro"></div>';
+    c.firstChild.textContent = 'Imagen descargada. Compilala y volvé con el archivo .mind.';
+  } else c.innerHTML = '';
+}
+
+async function fuenteDelMarcador(){
+  if (proyecto.marcador.modo === 'imagen'){
+    if (!proyecto.marcador.imagen) throw new Error('Todavía no elegiste la imagen del marcador.');
+    return proyecto.marcador.imagen;
+  }
+  if (!proyecto.titulo.trim()) throw new Error('Poné un nombre a la experiencia antes de generar la ficha.');
+  const { ficha, qr } = await generarFicha(urlVisor(proyecto.id), proyecto.titulo);
+  proyecto.qr = qr;
+  proyecto.ficha = ficha;
+  proyecto.marcador.relacion = 900 / 1200;
+  return ficha;
+}
+
+$('#btn-bajar-marcador').addEventListener('click', async () => {
+  try {
+    const fuente = await fuenteDelMarcador();
+    proyecto.marcador.fuente = fuente;
+    descargar(nombreArchivo(proyecto.titulo || 'marcador') + '_marcador.png', fuente);
+    pintarEstadoMind(); pintarTodo(); guardarBorrador();
+  } catch (e){ brindis(e.message); }
+});
+
+$('#btn-importar-mind').addEventListener('click', () => $('#f-mind').click());
+$('#f-mind').addEventListener('change', async e => {
+  const f = e.target.files[0]; if (!f) return;
+  e.target.value = '';
+  if (!proyecto.marcador.fuente){
+    brindis('Primero descargá la imagen del marcador: el .mind tiene que corresponder a esa imagen.');
+    return;
+  }
+  try {
+    const bytes = new Uint8Array(await f.arrayBuffer());
+    if (!bytes.length) throw new Error('El archivo está vacío.');
+    proyecto.marcador.mind = aBase64(bytes);
+    proyecto.marcador.manual = true;
+    pintarEstadoMind(); guardarBorrador();
+    brindis('.mind cargado (' + Math.round(bytes.length / 1024) + ' KB)');
+  } catch (err){ brindis('No se pudo leer el .mind: ' + err.message); }
 });
 
 /* Ficha imprimible: marco negro grueso, título, QR al centro y cuatro marcas
@@ -720,28 +808,64 @@ async function miniatura(src, ancho = 380){
   return c.toDataURL('image/jpeg', 0.72);
 }
 
-/* ───────── carga del compilador de MindAR ─────────
-   Las distribuciones de MindAR no son homogéneas: algunas versiones publican
-   mindar-image.prod.js como módulo ES y otras como script clásico. En lugar de
-   apostar a una, probamos las dos formas y, si ninguna anda, el bundle de
-   A-Frame, que también trae el compilador adentro. */
+/* ───────── carga de MindAR ─────────
+   Los bundles de MindAR no tienen un formato uniforme: según la versión y el
+   archivo, vienen como módulo ES (con `import ... from "three"`) o como script
+   clásico. Inyectar el equivocado tira un SyntaxError que ni siquiera se puede
+   atrapar, porque ocurre al parsear, no al ejecutar.
+   La salida es no adivinar: bajamos el texto con fetch, miramos qué es, y lo
+   cargamos como corresponde. Si es módulo, reescribimos los especificadores
+   desnudos a URLs completas y lo importamos desde un blob. */
+
+const CDN_THREE = 'https://cdn.jsdelivr.net/npm/three@0.147.0/';
+
+function resolverEspecificador(spec){
+  if (spec === 'three') return CDN_THREE + 'build/three.module.js';
+  if (spec.startsWith('three/')) return CDN_THREE + spec.slice(6);
+  return null;
+}
+
+function reescribirImports(codigo, sinResolver){
+  return codigo.replace(
+    /(\bfrom\s*|\bimport\s*\(?\s*)(["'])([^"'\n]+)\2/g,
+    (todo, pre, q, spec) => {
+      if (/^[./]/.test(spec) || /^[a-z]+:/i.test(spec)) return todo;   // relativo o ya absoluto
+      const destino = resolverEspecificador(spec);
+      if (!destino){ sinResolver.add(spec); return todo; }
+      return pre + q + destino + q;
+    });
+}
+
+const ES_MODULO = /(^|[\n;{}])\s*(import|export)\s*[\s{*("'`]/;
+
+async function cargarBundle(url){
+  const r = await fetch(url, { mode: 'cors' });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  const codigo = await r.text();
+
+  if (ES_MODULO.test(codigo)){
+    const sinResolver = new Set();
+    const parcheado = reescribirImports(codigo, sinResolver);
+    if (sinResolver.size)
+      throw new Error('no pude resolver los imports de: ' + [...sinResolver].join(', '));
+    const blob = URL.createObjectURL(new Blob([parcheado], { type: 'text/javascript' }));
+    try { await import(/* webpackIgnore: true */ blob); }
+    finally { URL.revokeObjectURL(blob); }
+    return 'módulo ES';
+  }
+
+  // Script clásico: lo ejecutamos con el texto que ya tenemos en mano.
+  const s = document.createElement('script');
+  s.textContent = codigo;
+  document.head.appendChild(s);
+  return 'script clásico';
+}
+
 const FUENTES_MINDAR = [
   'https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image.prod.js',
   'https://unpkg.com/mind-ar@1.2.5/dist/mindar-image.prod.js',
   'https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js'
 ];
-
-function cargarScript(url){
-  return new Promise((res, rej) => {
-    if (document.querySelector('script[data-mindar="' + url + '"]')) return res();
-    const s = document.createElement('script');
-    s.src = url;
-    s.dataset.mindar = url;
-    s.onload = () => res();
-    s.onerror = () => rej(new Error('No se pudo descargar ' + url));
-    document.head.appendChild(s);
-  });
-}
 
 const globalCompilador = () =>
   (window.MINDAR && window.MINDAR.IMAGE && window.MINDAR.IMAGE.Compiler) || null;
@@ -754,35 +878,28 @@ function obtenerCompilador(){
   if (compiladorPromesa) return compiladorPromesa;
 
   compiladorPromesa = (async () => {
+    const ya = globalCompilador();
+    if (ya) return (compiladorCache = ya);
+
     const fallas = [];
-    const yaEsta = globalCompilador();
-    if (yaEsta) return (compiladorCache = yaEsta);
-
-    // 1) como módulo ES
     for (const url of FUENTES_MINDAR){
       try {
-        const mod = await import(/* webpackIgnore: true */ url);
-        const C = (mod && mod.Compiler) ||
-                  (mod && mod.default && mod.default.Compiler) ||
-                  globalCompilador();
-        if (C) return (compiladorCache = C);
-        fallas.push(url + ': el módulo no expone Compiler');
-      } catch (e){ fallas.push(url + ' (módulo): ' + e.message); }
-    }
-
-    // 2) como script clásico
-    for (const url of FUENTES_MINDAR){
-      try {
-        await cargarScript(url);
+        const forma = await cargarBundle(url);
         const C = globalCompilador();
-        if (C) return (compiladorCache = C);
-        fallas.push(url + ': cargó pero no dejó MINDAR.IMAGE.Compiler');
-      } catch (e){ fallas.push(url + ' (script): ' + e.message); }
+        if (C){
+          console.info('[MindAR] compilador cargado desde ' + url + ' (' + forma + ')');
+          return (compiladorCache = C);
+        }
+        fallas.push(url + ' → cargó como ' + forma + ' pero no expone MINDAR.IMAGE.Compiler');
+      } catch (e){
+        fallas.push(url + ' → ' + e.message);
+      }
     }
 
     console.warn('[MindAR] intentos fallidos:\n' + fallas.join('\n'));
-    const err = new Error('No se pudo cargar el compilador de MindAR desde ningún CDN. ' +
-      'Revisá la conexión o si hay un bloqueador de scripts; el detalle está en la consola.');
+    const err = new Error('No se pudo cargar el compilador de MindAR. Podés compilar el marcador ' +
+      'aparte con la herramienta oficial: está explicado en "Si la compilación automática falla", ' +
+      'en el panel del marcador.');
     err.fallas = fallas;
     throw err;
   })();
@@ -797,7 +914,10 @@ async function compilarMind(dataURL, alProgreso){
   const comp = new Compiler();
   await comp.compileImageTargets([img], p => alProgreso(p));
   const datos = await comp.exportData();
-  const bytes = datos instanceof Uint8Array ? datos : new Uint8Array(datos);
+  return aBase64(datos instanceof Uint8Array ? datos : new Uint8Array(datos));
+}
+
+function aBase64(bytes){
   let bin = ''; const paso = 8192;
   for (let i = 0; i < bytes.length; i += paso)
     bin += String.fromCharCode.apply(null, bytes.subarray(i, i + paso));
@@ -853,28 +973,47 @@ $('#btn-publicar').addEventListener('click', async () => {
 
   try {
     const url = urlVisor(proyecto.id);
-    estado('Generando el código QR…');
-    const { ficha, qr } = await generarFicha(url, proyecto.titulo);
-    proyecto.qr = qr;
+    const manual = proyecto.marcador.manual && proyecto.marcador.mind && proyecto.marcador.fuente;
 
     let fuente;
-    if (proyecto.marcador.modo === 'qr'){
-      proyecto.ficha = ficha;
-      proyecto.marcador.relacion = 900 / 1200;
-      fuente = ficha;
+    if (manual){
+      // El .mind vino compilado aparte: hay que usar exactamente la imagen que
+      // se mandó a compilar, no una ficha regenerada.
+      estado('Usando el .mind que cargaste a mano.');
+      fuente = proyecto.marcador.fuente;
+      if (proyecto.marcador.modo === 'qr'){
+        proyecto.ficha = fuente;
+        proyecto.marcador.relacion = 900 / 1200;
+        if (!proyecto.qr) proyecto.qr = (await generarFicha(url, proyecto.titulo)).qr;
+      } else {
+        proyecto.ficha = '';
+        proyecto.qr = (await generarFicha(url, proyecto.titulo)).qr;
+      }
+      proyecto.marcador.vistaPrevia = await miniatura(fuente);
     } else {
-      proyecto.ficha = '';
-      fuente = proyecto.marcador.imagen;
-    }
+      estado('Generando el código QR…');
+      const { ficha, qr } = await generarFicha(url, proyecto.titulo);
+      proyecto.qr = qr;
 
-    estado('Compilando el marcador. Tarda entre 10 y 60 segundos.');
-    proyecto.marcador.vistaPrevia = await miniatura(fuente);
-    if (!compiladorCache) estado('Descargando el compilador de MindAR…');
-    await obtenerCompilador();
-    estado('Compilando el marcador. Tarda entre 10 y 60 segundos.');
-    proyecto.marcador.mind = await compilarMind(fuente, p => {
-      $('#prog i').style.width = Math.min(100, Math.round(p)) + '%';
-    });
+      if (proyecto.marcador.modo === 'qr'){
+        proyecto.ficha = ficha;
+        proyecto.marcador.relacion = 900 / 1200;
+        fuente = ficha;
+      } else {
+        proyecto.ficha = '';
+        fuente = proyecto.marcador.imagen;
+      }
+
+      proyecto.marcador.vistaPrevia = await miniatura(fuente);
+      if (!compiladorCache) estado('Descargando el compilador de MindAR…');
+      await obtenerCompilador();
+      estado('Compilando el marcador. Tarda entre 10 y 60 segundos.');
+      proyecto.marcador.mind = await compilarMind(fuente, p => {
+        $('#prog i').style.width = Math.min(100, Math.round(p)) + '%';
+      });
+      proyecto.marcador.fuente = fuente;
+      proyecto.marcador.manual = false;
+    }
 
     proyecto.actualizado = Date.now();
     await DB.guardar(JSON.parse(JSON.stringify(proyecto)));
@@ -1049,7 +1188,7 @@ function aplicar(p){
   $('#op-qr').classList.toggle('sel', modo === 'qr');
   $('#op-img').classList.toggle('sel', modo === 'imagen');
   $('#zona-marcador').hidden = modo !== 'imagen';
-  pintarTodo(); pintarBiblioteca();
+  pintarTodo(); pintarBiblioteca(); pintarEstadoMind();
 }
 
 $('#btn-nuevo').addEventListener('click', () => {
@@ -1077,7 +1216,8 @@ window.addEventListener('resize', pintarEscenario);
   // después de haber compuesto toda la experiencia.
   obtenerCompilador().catch(e => {
     estado('El compilador de MindAR no se pudo descargar. Podés seguir componiendo, pero al guardar va a fallar. ' +
-           'Revisá la conexión o si hay un bloqueador de scripts.');
+           'Como alternativa, abrí "Si la compilación automática falla" en el panel del marcador.');
+    $('#plan-b').open = true;
   });
 })();
 </script>
