@@ -13,7 +13,9 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23101215'/%3E%3Crect x='8' y='8' width='16' height='16' fill='none' stroke='%23E8433A' stroke-width='2.5'/%3E%3Crect x='11' y='11' width='16' height='16' fill='none' stroke='%2321C3D6' stroke-width='2.5'/%3E%3C/svg%3E">
 
 <script src="https://cdn.jsdelivr.net/npm/aframe@1.4.2/dist/aframe.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+<!-- MindAR se carga desde el script de abajo, detectando si el bundle es
+     módulo ES o script clásico: inyectar el formato equivocado tira un
+     SyntaxError que no se puede atrapar. -->
 
 <style>
   :root{
@@ -524,10 +526,76 @@ function construirEscena(){
    las capas y sus <video> ya existen cuando el usuario toca el botón, y ese
    mismo toque sirve para desbloquear la reproducción en iOS. La cámara recién
    se abre en start(). */
-async function prepararEscena(){
-  if (typeof AFRAME === 'undefined' || !AFRAME.components['mindar-image']){
-    throw new Error('Las librerías de AR no se cargaron.');
+/* ───────── carga de MindAR ─────────
+   El bundle puede venir como módulo ES o como script clásico según la versión.
+   Bajamos el texto, detectamos qué es y lo ejecutamos como corresponde,
+   reescribiendo los especificadores desnudos a URLs completas. */
+const CDN_THREE = 'https://cdn.jsdelivr.net/npm/three@0.147.0/';
+const ES_MODULO = /(^|[\n;{}])\s*(import|export)\s*[\s{*("'`]/;
+
+const FUENTES_AR = [
+  'https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js',
+  'https://unpkg.com/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js'
+];
+
+function resolverEspecificador(spec){
+  if (spec === 'three') return CDN_THREE + 'build/three.module.js';
+  if (spec.startsWith('three/')) return CDN_THREE + spec.slice(6);
+  if (spec === 'aframe') return 'https://cdn.jsdelivr.net/npm/aframe@1.4.2/dist/aframe.min.js';
+  return null;
+}
+
+async function cargarBundle(url){
+  const r = await fetch(url, { mode: 'cors' });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  const codigo = await r.text();
+
+  if (ES_MODULO.test(codigo)){
+    const sinResolver = new Set();
+    const parcheado = codigo.replace(
+      /(\bfrom\s*|\bimport\s*\(?\s*)(["'])([^"'\n]+)\2/g,
+      (todo, pre, q, spec) => {
+        if (/^[./]/.test(spec) || /^[a-z]+:/i.test(spec)) return todo;
+        const destino = resolverEspecificador(spec);
+        if (!destino){ sinResolver.add(spec); return todo; }
+        return pre + q + destino + q;
+      });
+    if (sinResolver.size)
+      throw new Error('no pude resolver los imports de: ' + [...sinResolver].join(', '));
+    const blob = URL.createObjectURL(new Blob([parcheado], { type: 'text/javascript' }));
+    try { await import(/* webpackIgnore: true */ blob); }
+    finally { URL.revokeObjectURL(blob); }
+    return 'módulo ES';
   }
+
+  const s = document.createElement('script');
+  s.textContent = codigo;
+  document.head.appendChild(s);
+  return 'script clásico';
+}
+
+async function cargarMindAR(){
+  if (typeof AFRAME === 'undefined')
+    throw new Error('A-Frame no se cargó. Revisá la conexión y recargá.');
+  if (AFRAME.components['mindar-image']) return;
+
+  const fallas = [];
+  for (const url of FUENTES_AR){
+    try {
+      const forma = await cargarBundle(url);
+      if (AFRAME.components['mindar-image']){
+        console.info('[MindAR] cargado desde ' + url + ' (' + forma + ')');
+        return;
+      }
+      fallas.push(url + ' → cargó como ' + forma + ' pero no registró el componente');
+    } catch (e){ fallas.push(url + ' → ' + e.message); }
+  }
+  console.warn('[MindAR] intentos fallidos:\n' + fallas.join('\n'));
+  throw new Error('No se pudo cargar la librería de seguimiento.');
+}
+
+async function prepararEscena(){
+  await cargarMindAR();
   escenaEl = construirEscena();
   await new Promise(res => {
     if (escenaEl.hasLoaded) res();
