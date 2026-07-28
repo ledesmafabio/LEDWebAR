@@ -10,6 +10,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23101215'/%3E%3Crect x='8' y='8' width='16' height='16' fill='none' stroke='%23E8433A' stroke-width='2.5'/%3E%3Crect x='11' y='11' width='16' height='16' fill='none' stroke='%2321C3D6' stroke-width='2.5'/%3E%3C/svg%3E">
+
 <script src="https://cdn.jsdelivr.net/npm/aframe@1.4.2/dist/aframe.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
 
@@ -523,6 +525,9 @@ function construirEscena(){
    mismo toque sirve para desbloquear la reproducción en iOS. La cámara recién
    se abre en start(). */
 async function prepararEscena(){
+  if (typeof AFRAME === 'undefined' || !AFRAME.components['mindar-image']){
+    throw new Error('Las librerías de AR no se cargaron.');
+  }
   escenaEl = construirEscena();
   await new Promise(res => {
     if (escenaEl.hasLoaded) res();
